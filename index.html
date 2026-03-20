@@ -159,37 +159,7 @@ const INITIAL_CHEMICALS = [
   }
 ];
 
-const INITIAL_DECLARATIONS = [
-  // 乙腈 105-01
-  { id:1, chemicalId:"105-01", location:"大愛樓6F 核醫製藥科", yearMonth:"2025-05",
-    prevBalance:11.805, unit:"公克", useAmount:0, balance:11.805,
-    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-001", note:"" },
-  { id:2, chemicalId:"105-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
-    prevBalance:500, unit:"公克", useAmount:50, balance:450,
-    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-002", note:"電泳分析用" },
-  { id:3, chemicalId:"105-01", location:"合心樓3F 檢驗科", yearMonth:"2025-05",
-    prevBalance:300, unit:"公克", useAmount:100, balance:200,
-    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-003", note:"HPLC分析" },
-  // 三氯甲烷 054-01
-  { id:4, chemicalId:"054-01", location:"合心樓3F 檢驗科", yearMonth:"2025-05",
-    prevBalance:200, unit:"公克", useAmount:20, balance:180,
-    permitNo:"花蓮縣毒核字第000008號", controlNo:"U9101065", reference:"申報字號-2025-004", note:"" },
-  { id:5, chemicalId:"054-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
-    prevBalance:180, unit:"公克", useAmount:30, balance:150,
-    permitNo:"花蓮縣毒核字第000008號", controlNo:"U9101065", reference:"申報字號-2025-005", note:"" },
-  // 環氧乙烷 061-01
-  { id:6, chemicalId:"061-01", location:"感恩樓B1F 供應中心", yearMonth:"2025-05",
-    prevBalance:2500, unit:"公克", useAmount:500, balance:2000,
-    permitNo:"花蓮縣毒核字第000010號", controlNo:"U9101066", reference:"申報字號-2025-006", note:"滅菌處理" },
-  // 甲醛 066-01
-  { id:7, chemicalId:"066-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
-    prevBalance:1000, unit:"公克", useAmount:100, balance:900,
-    permitNo:"花蓮縣毒核字第000011號", controlNo:"U9101067", reference:"申報字號-2025-007", note:"組織固定" },
-  // 一氧化二氮 L001-01
-  { id:8, chemicalId:"L001-01", location:"感恩樓3F 心導管室", yearMonth:"2025-05",
-    prevBalance:20000, unit:"公斤", useAmount:2000, balance:23000,
-    permitNo:"花蓮縣關注化學第000001號", controlNo:"U9200001", reference:"申報字號-2025-008", note:"本月補充5000公克" },
-];
+const INITIAL_DECLARATIONS = [];
 
 // ─── Building Floor Plan Data ──────────────────────────────────────────────────
 const FLOOR_PLAN = {
@@ -1532,130 +1502,111 @@ function SDSSection({ title, color, children }) {
 
 // ─── Declarations Page ────────────────────────────────────────────────────────
 function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMode, showToast }) {
-  const [selectedYearMonth, setSelectedYearMonth] = useState("");
-  const [expandedChem, setExpandedChem] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterChem, setFilterChem] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
-  const [showImportGuide, setShowImportGuide] = useState(false);
-  const xlsxRef = React.useRef(null);
+  const fileInputRef = useRef(null);
+  const editFileRef = useRef(null);
 
-  const EMPTY_FORM = {
-    chemicalId:"", location:"", yearMonth:"", prevBalance:"", unit:"公克",
-    useAmount:"", balance:"", permitNo:"", controlNo:"",
-    reference:"", note:""
+  const EMPTY = {
+    chemicalId:"", location:"", yearMonth:"",
+    prevBalance:"", useAmount:"", balance:"", unit:"公克",
+    permitNo:"", controlNo:"", note:"",
+    fileName:"", fileData:""
   };
-  const [newDecl, setNewDecl] = useState(EMPTY_FORM);
-
-  const getChemName = (id) => {
-    const c = chemicals.find(c => c.id === id);
-    return c ? `${c.name} (${id})` : id;
-  };
-  const getChemEnName = (id) => chemicals.find(c => c.id === id)?.enName || "";
-
-  // 篩選月份列表
-  const allMonths = [...new Set(declarations.map(d => d.yearMonth))].sort().reverse();
-  const filtered = selectedYearMonth
-    ? declarations.filter(d => d.yearMonth === selectedYearMonth)
-    : declarations;
-
-  // 依化學品分組
-  const chemGroups = chemicals
-    .filter(c => filtered.some(d => d.chemicalId === c.id))
-    .map(c => ({
-      chem: c,
-      records: filtered.filter(d => d.chemicalId === c.id)
-    }));
-
-  // 統計
-  const stats = {
-    total: filtered.length,
-    chemCount: chemGroups.length,
-  };
-
-  // Excel 匯入
-  const handleExcelImport = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
-    try {
-      if (!window.XLSX) {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-          s.onload = resolve; s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
-      const buf = await file.arrayBuffer();
-      const wb = window.XLSX.read(buf, { type:"array" });
-      const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:"" });
-      if (!rows.length) { showToast("Excel 沒有資料", "error"); return; }
-      const FIELD_MAP = {
-        "管制編號":"chemicalId","列管編號":"chemicalId",
-        "運作場所":"location","地點":"location","科別":"location",
-        "記錄月份":"yearMonth","年月":"yearMonth",
-        "上月結餘量":"prevBalance","上月結餘":"prevBalance",
-        "單位":"unit","本月使用量":"useAmount","使用量":"useAmount",
-        "結餘量":"balance","結餘":"balance",
-        "許可證字號":"permitNo","管制編號(U)":"controlNo",
-        "申報字號":"reference","備註":"note","注記":"note",
-      };
-      const imported = rows.map((row, i) => {
-        const obj = { ...EMPTY_FORM, id: Date.now() + i };
-        Object.entries(row).forEach(([k, v]) => {
-          const field = FIELD_MAP[k.trim()];
-          if (field) obj[field] = ["prevBalance","useAmount","balance"].includes(field) ? (parseFloat(v)||0) : String(v).trim();
-        });
-        return obj;
-      }).filter(r => r.chemicalId);
-      if (!imported.length) { showToast("找不到有效資料，請確認欄位名稱", "error"); return; }
-      const mode = window.confirm(`匯入 ${imported.length} 筆\n確定→取代現有 / 取消→附加`);
-      setDeclarations(prev => mode ? imported : [...prev, ...imported]);
-      showToast(`成功匯入 ${imported.length} 筆 🎉`);
-    } catch(err) { showToast("匯入失敗：" + err.message, "error"); }
-  };
+  const [form, setForm] = useState(EMPTY);
 
   const inputS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
     borderRadius:6, padding:"7px 10px", fontSize:12, width:"100%", boxSizing:"border-box" };
-  const labelS = { fontSize:11, color:"#64748b", marginBottom:4, display:"block" };
+  const labelS = { fontSize:11, color:"#64748b", marginBottom:3, display:"block" };
+
+  const allMonths = [...new Set(declarations.map(d => d.yearMonth))].sort().reverse();
+
+  const filtered = declarations.filter(d =>
+    (!filterMonth || d.yearMonth === filterMonth) &&
+    (!filterChem  || d.chemicalId === filterChem)
+  );
+
+  // Group by yearMonth
+  const groups = allMonths
+    .filter(m => !filterMonth || m === filterMonth)
+    .map(m => ({
+      month: m,
+      records: filtered.filter(d => d.yearMonth === m)
+    })).filter(g => g.records.length > 0);
+
+  const getChemName = id => chemicals.find(c => c.id === id)?.name || id;
+
+  // Read file for new form
+  const handleFile = (e, isEdit=false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      if (isEdit) setEditData(prev => ({ ...prev, fileName: file.name, fileData: ev.target.result }));
+      else setForm(prev => ({ ...prev, fileName: file.name, fileData: ev.target.result }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const saveNew = () => {
-    if (!newDecl.chemicalId || !newDecl.location || !newDecl.yearMonth) {
-      showToast("請填寫：管制編號、運作場所、記錄月份", "error"); return;
+    if (!form.chemicalId || !form.yearMonth || !form.location) {
+      showToast("請填寫：管制編號、月份、運作場所", "error"); return;
     }
-    setDeclarations(prev => [...prev, {
-      ...newDecl, id: Date.now(),
-      prevBalance: parseFloat(newDecl.prevBalance)||0,
-      useAmount: parseFloat(newDecl.useAmount)||0,
-      balance: parseFloat(newDecl.balance)||0,
+    setDeclarations(prev => [...prev, { ...form, id: Date.now(),
+      prevBalance: parseFloat(form.prevBalance)||0,
+      useAmount:   parseFloat(form.useAmount)||0,
+      balance:     parseFloat(form.balance)||0,
     }]);
-    setNewDecl(EMPTY_FORM);
+    setForm(EMPTY);
     setShowAdd(false);
     showToast("申報紀錄已新增");
   };
 
-  const startEdit = (d) => { setEditingId(d.id); setEditData({...d}); };
+  const startEdit = d => { setEditingId(d.id); setEditData({...d}); };
   const saveEdit = () => {
-    setDeclarations(prev => prev.map(x => x.id === editingId
+    setDeclarations(prev => prev.map(r => r.id === editingId
       ? { ...editData, prevBalance:parseFloat(editData.prevBalance)||0,
           useAmount:parseFloat(editData.useAmount)||0, balance:parseFloat(editData.balance)||0 }
-      : x));
+      : r));
     setEditingId(null);
     showToast("已儲存");
   };
 
+  const downloadFile = (fileData, fileName) => {
+    const a = document.createElement("a");
+    a.href = fileData;
+    a.download = fileName;
+    a.click();
+  };
+
+  const stats = {
+    total: declarations.length,
+    chems: new Set(declarations.map(d => d.chemicalId)).size,
+    months: allMonths.length,
+    withFile: declarations.filter(d => d.fileData).length,
+  };
+
   return (
     <div>
-      {/* ── 標題列 ── */}
+      {/* 標題列 */}
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>📝 申報紀錄</h2>
 
-        {/* 月份篩選 */}
-        <select value={selectedYearMonth} onChange={e => setSelectedYearMonth(e.target.value)}
+        {/* 篩選 */}
+        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
           style={{ ...inputS, width:130, marginLeft:8 }}>
           <option value="">全部月份</option>
           {allMonths.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select value={filterChem} onChange={e => setFilterChem(e.target.value)}
+          style={{ ...inputS, width:160 }}>
+          <option value="">全部化學品</option>
+          {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
         </select>
 
         <a href="https://cems.moenv.gov.tw" target="_blank" rel="noreferrer"
@@ -1663,47 +1614,20 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
             border:"1px solid #334155", padding:"6px 12px", borderRadius:6 }}>
           🌐 毒化物管理系統 ↗
         </a>
-
-        {isAdminMode && (<>
-          <label style={{ ...{background:"#16a34a",border:"none",color:"#fff",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600} }}>
-            📥 匯入 Excel
-            <input ref={xlsxRef} type="file" accept=".xlsx,.xls,.csv" style={{ display:"none" }} onChange={handleExcelImport} />
-          </label>
-          <button onClick={() => setShowImportGuide(v => !v)}
-            style={{ background:"transparent", border:"1px solid #334155", color:"#64748b", borderRadius:6, padding:"6px 10px", cursor:"pointer", fontSize:12 }}>
-            {showImportGuide ? "▲ 隱藏說明" : "❓ Excel 格式"}
-          </button>
-          <button onClick={() => setShowAdd(v => !v)}
-            style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
-            ＋ 新增紀錄
-          </button>
-        </>)}
+        <button onClick={() => setShowAdd(v => !v)}
+          style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6,
+            padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+          ＋ 新增紀錄
+        </button>
       </div>
 
-      {/* ── Excel 格式說明 ── */}
-      {showImportGuide && (
-        <div style={{ background:"#1e293b", borderRadius:10, padding:14, marginBottom:14, borderLeft:"3px solid #16a34a" }}>
-          <div style={{ fontSize:13, color:"#86efac", marginBottom:8 }}>📋 Excel 欄位名稱對照（第一列為標題）</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, fontSize:11 }}>
-            {[["管制編號","105-01（必填）"],["運作場所","合心樓5F 研究部（必填）"],["記錄月份","2025-05（必填）"],
-              ["上月結餘量","11.805（數字）"],["單位","公克/mL/L/kg"],["本月使用量","50（數字）"],
-              ["結餘量","450（數字）"],["許可證字號","花蓮縣毒核字第000006號"],
-              ["申報字號","申報字號-2025-001"],["備註","說明文字"]
-            ].map(([k,v]) => (
-              <div key={k} style={{ background:"#0f172a", borderRadius:6, padding:"6px 10px" }}>
-                <div style={{ color:"#38bdf8", fontWeight:700 }}>{k}</div>
-                <div style={{ color:"#64748b", marginTop:2 }}>{v}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── 統計卡 ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:12, marginBottom:20 }}>
+      {/* 統計卡 */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {[
-          { label:"品項數",   value:stats.chemCount,  color:"#38bdf8",  icon:"⚗" },
-          { label:"記錄筆數", value:stats.total,       color:"#94a3b8",  icon:"📋" },
+          { label:"總筆數",   value:stats.total,    color:"#38bdf8", icon:"📋" },
+          { label:"品項數",   value:stats.chems,    color:"#a78bfa", icon:"⚗"  },
+          { label:"月份數",   value:stats.months,   color:"#94a3b8", icon:"📅" },
+          { label:"已附電子檔", value:stats.withFile, color:"#22c55e", icon:"📎" },
         ].map(s => (
           <div key={s.label} style={{ background:"#1e293b", borderRadius:10, padding:"14px 16px",
             borderTop:`3px solid ${s.color}` }}>
@@ -1713,206 +1637,260 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
         ))}
       </div>
 
-      {/* ── 新增表單 ── */}
+      {/* 新增表單 */}
       {showAdd && (
         <div style={{ background:"#1e293b", borderRadius:10, padding:18, marginBottom:16, border:"1px solid #334155" }}>
-          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>＋ 手動新增申報紀錄</div>
+          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>＋ 新增申報紀錄</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-            {[
-              ["管制編號 *", "chemicalId", "select"],
-              ["運作場所 *", "location", "text"],
-              ["記錄月份 *", "yearMonth", "month"],
-              ["上月結餘量", "prevBalance", "number"],
-              ["單位", "unit", "unitSelect"],
-              ["本月使用量", "useAmount", "number"],
-              ["結餘量（自行管理）", "balance", "number"],
-              ["許可證字號", "permitNo", "text"],
-              ["管制編號(U碼)", "controlNo", "text"],
-              ["申報字號", "reference", "text"],
-              ["備註", "note", "text"],
-            ].map(([label, field, type]) => (
-              <div key={field}>
-                <label style={labelS}>{label}</label>
-                {type === "select" ? (
-                  <select value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS}>
-                    <option value="">選擇化學品</option>
-                    {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
-                  </select>
-                ) : type === "unitSelect" ? (
-                  <select value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS}>
-                    {["公克","mL","L","kg","公斤","噸","公升"].map(u => <option key={u}>{u}</option>)}
-                  </select>
-) : type === "month" ? (
-                  <input type="month" value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS} />
-                ) : (
-                  <input type={type} value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})}
-                    placeholder={type === "number" ? "0" : ""} style={inputS} />
-                )}
+
+            {/* 必填欄位 */}
+            <div>
+              <label style={labelS}>管制編號 *</label>
+              <select value={form.chemicalId} onChange={e => setForm({...form,chemicalId:e.target.value})} style={inputS}>
+                <option value="">選擇化學品</option>
+                {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>記錄月份 *</label>
+              <input type="month" value={form.yearMonth} onChange={e => setForm({...form,yearMonth:e.target.value})} style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>運作場所 *</label>
+              <input value={form.location} onChange={e => setForm({...form,location:e.target.value})}
+                placeholder="例：合心樓5F 研究部" style={inputS} />
+            </div>
+
+            {/* 數量欄位 */}
+            <div>
+              <label style={labelS}>上月結餘量</label>
+              <div style={{ display:"flex", gap:4 }}>
+                <input type="number" value={form.prevBalance} onChange={e => setForm({...form,prevBalance:e.target.value})}
+                  placeholder="0" style={{...inputS, flex:2}} />
+                <select value={form.unit} onChange={e => setForm({...form,unit:e.target.value})} style={{...inputS, flex:1}}>
+                  {["公克","公斤","mL","L"].map(u => <option key={u}>{u}</option>)}
+                </select>
               </div>
-            ))}
+            </div>
+            <div>
+              <label style={labelS}>本月使用量</label>
+              <input type="number" value={form.useAmount} onChange={e => setForm({...form,useAmount:e.target.value})}
+                placeholder="0" style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>結餘量（自行管理）</label>
+              <input type="number" value={form.balance} onChange={e => setForm({...form,balance:e.target.value})}
+                placeholder="0" style={inputS} />
+            </div>
+
+            {/* 其他欄位 */}
+            <div>
+              <label style={labelS}>許可證字號</label>
+              <input value={form.permitNo} onChange={e => setForm({...form,permitNo:e.target.value})}
+                placeholder="花蓮縣毒核字第000006號" style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>管制編號(U碼)</label>
+              <input value={form.controlNo} onChange={e => setForm({...form,controlNo:e.target.value})}
+                placeholder="U9101064" style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>備註</label>
+              <input value={form.note} onChange={e => setForm({...form,note:e.target.value})} style={inputS} />
+            </div>
           </div>
+
+          {/* 附件上傳 */}
+          <div style={{ marginTop:12, padding:12, background:"#0f172a", borderRadius:8,
+            border:"1px dashed #334155" }}>
+            <div style={{ fontSize:12, color:"#64748b", marginBottom:8 }}>📎 附上電子紀錄檔（PDF、Excel、圖片皆可）</div>
+            <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png"
+              onChange={e => handleFile(e)} style={{ display:"none" }} />
+            {form.fileData ? (
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:12, color:"#22c55e" }}>✓ {form.fileName}</span>
+                <button onClick={() => setForm({...form, fileName:"", fileData:""})}
+                  style={{ fontSize:11, background:"#7f1d1d", border:"none", color:"#fca5a5",
+                    borderRadius:4, padding:"2px 8px", cursor:"pointer" }}>移除</button>
+              </div>
+            ) : (
+              <button onClick={() => fileInputRef.current.click()}
+                style={{ ...{background:"#1e293b",border:"1px solid #334155",color:"#94a3b8",
+                  borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:12} }}>
+                📁 選擇檔案
+              </button>
+            )}
+          </div>
+
           <div style={{ display:"flex", gap:8, marginTop:14 }}>
             <button onClick={saveNew}
-              style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>
-              儲存
-            </button>
-            <button onClick={() => { setShowAdd(false); setNewDecl(EMPTY_FORM); }}
-              style={{ background:"#334155", border:"none", color:"#94a3b8", borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>
-              取消
-            </button>
+              style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6,
+                padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>儲存</button>
+            <button onClick={() => { setShowAdd(false); setForm(EMPTY); }}
+              style={{ background:"#334155", border:"none", color:"#94a3b8",
+                borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>取消</button>
           </div>
         </div>
       )}
 
-      {/* ── 依化學品分組顯示 ── */}
-      {chemGroups.length === 0 ? (
+      {/* 依月份分組顯示 */}
+      {declarations.length === 0 ? (
         <div style={{ background:"#1e293b", borderRadius:10, padding:40, textAlign:"center", color:"#475569" }}>
-          尚無申報紀錄，請點上方「匯入 Excel」或「新增紀錄」
+          尚無申報紀錄，點上方「＋ 新增紀錄」開始建立
         </div>
-      ) : chemGroups.map(({ chem, records }) => {
-        const isOpen = expandedChem === chem.id;
-        return (
-          <div key={chem.id} style={{ marginBottom:12, background:"#1e293b", borderRadius:12,
-            border:"1px solid #1e3a5f", overflow:"hidden" }}>
-            {/* 化學品標頭 */}
-            <div onClick={() => setExpandedChem(isOpen ? null : chem.id)}
-              style={{ display:"flex", alignItems:"center", padding:"14px 18px", cursor:"pointer",
-                background: isOpen ? "#172032" : "#1e293b",
-                transition:"background 0.15s" }}
-              onMouseEnter={e => { if(!isOpen) e.currentTarget.style.background = "#172032"; }}
-              onMouseLeave={e => { if(!isOpen) e.currentTarget.style.background = "#1e293b"; }}>
+      ) : groups.length === 0 ? (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:40, textAlign:"center", color:"#475569" }}>
+          找不到符合條件的紀錄
+        </div>
+      ) : groups.map(({ month, records }) => (
+        <div key={month} style={{ marginBottom:12, background:"#1e293b", borderRadius:12,
+          border:"1px solid #1e3a5f", overflow:"hidden" }}>
 
-              {/* 化學品名稱 */}
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:15, fontWeight:800, color:"#f1f5f9" }}>{chem.name}</span>
-                  <span style={{ fontSize:11, color:"#64748b" }}>{chem.enName}</span>
-                  <span style={{ fontSize:11, background:"#0f172a", padding:"1px 8px", borderRadius:20, color:"#38bdf8" }}>
-                    {chem.id}
-                  </span>
-                  <span style={{ fontSize:11, background:"#0f172a", padding:"1px 8px", borderRadius:20,
-                    color: chem.category === "毒性化學物質" ? "#f87171" : "#fb923c" }}>
-                    {chem.category}
-                  </span>
-                </div>
-                <div style={{ display:"flex", gap:16, marginTop:4, fontSize:11, color:"#64748b" }}>
-                  <span>📍 {records.length} 個運作場所</span>
-                  <span>📅 {[...new Set(records.map(r=>r.yearMonth))].join("、")}</span>
-                </div>
-              </div>
-
-              <span style={{ fontSize:14, color:"#475569" }}>{isOpen ? "▲" : "▼"}</span>
-            </div>
-
-            {/* 展開：各運作場所紀錄 */}
-            {isOpen && (
-              <div style={{ borderTop:"1px solid #1e3a5f" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                  <thead>
-                    <tr style={{ background:"#0f172a" }}>
-                      {["運作場所","記錄月份","上月結餘量","本月使用量","結餘量(自行管理)","許可證字號","備註", isAdminMode ? "操作" : null]
-                        .filter(Boolean)
-                        .map(h => (
-                          <th key={h} style={{ padding:"9px 12px", textAlign:"left", color:"#64748b",
-                            fontWeight:500, fontSize:11, whiteSpace:"nowrap" }}>{h}</th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map(d => {
-                      const isEditing = editingId === d.id;
-                      const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
-                        borderRadius:4, padding:"2px 6px", fontSize:11, width:"100%", boxSizing:"border-box" };
-                      return (
-                        <tr key={d.id} style={{ borderBottom:"1px solid #1e3a5f" }}
-                          onMouseEnter={e => { if(!isEditing) e.currentTarget.style.background="#0f172a40"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}>
-
-                          {/* 運作場所 */}
-                          <td style={{ padding:"10px 12px", color:"#e2e8f0", minWidth:140, fontWeight:600 }}>
-                            {isEditing
-                              ? <input value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS} />
-                              : <><div>{d.location}</div><div style={{fontSize:10,color:"#475569",marginTop:2}}>{d.reference||""}</div></>}
-                          </td>
-
-                          {/* 記錄月份 */}
-                          <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:90 }}>
-                            {isEditing
-                              ? <input type="month" value={editData.yearMonth||""} onChange={e => setEditData({...editData,yearMonth:e.target.value})} style={inS} />
-                              : d.yearMonth}
-                          </td>
-
-                          {/* 上月結餘量 */}
-                          <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:100 }}>
-                            {isEditing
-                              ? <div style={{display:"flex",gap:4}}>
-                                  <input type="number" value={editData.prevBalance||""} onChange={e => setEditData({...editData,prevBalance:e.target.value})} style={{...inS,width:70}} />
-                                  <select value={editData.unit||""} onChange={e => setEditData({...editData,unit:e.target.value})} style={inS}>
-                                    {["公克","mL","L","kg","公升","噸"].map(u=><option key={u}>{u}</option>)}
-                                  </select>
-                                </div>
-                              : `${d.prevBalance} ${d.unit}`}
-                          </td>
-
-                          {/* 本月使用量 */}
-                          <td style={{ padding:"10px 12px", color:"#fbbf24", minWidth:100 }}>
-                            {isEditing
-                              ? <input type="number" value={editData.useAmount||""} onChange={e => setEditData({...editData,useAmount:e.target.value})} style={inS} />
-                              : `${d.useAmount} ${d.unit}`}
-                          </td>
-
-                          {/* 結餘量 */}
-                          <td style={{ padding:"10px 12px", minWidth:110 }}>
-                            {isEditing
-                              ? <input type="number" value={editData.balance||""} onChange={e => setEditData({...editData,balance:e.target.value})} style={inS} />
-                              : <span style={{ color:"#a78bfa", fontWeight:700 }}>{d.balance} {d.unit}</span>}
-                          </td>
-
-                          {/* 許可證字號 */}
-                          <td style={{ padding:"10px 12px", color:"#64748b", minWidth:160, fontSize:10 }}>
-                            {isEditing
-                              ? <input value={editData.permitNo||""} onChange={e => setEditData({...editData,permitNo:e.target.value})} style={inS} />
-                              : <><div>{d.permitNo}</div>{d.controlNo && <div style={{marginTop:2,color:"#475569"}}>{d.controlNo}</div>}</>}
-                          </td>
-
-                          {/* 備註 */}
-                          <td style={{ padding:"10px 12px", color:"#64748b", minWidth:100 }}>
-                            {isEditing
-                              ? <input value={editData.note||""} onChange={e => setEditData({...editData,note:e.target.value})} style={inS} />
-                              : (d.note || "—")}
-                          </td>
-
-                          {/* 操作 */}
-                          {isAdminMode && (
-                            <td style={{ padding:"10px 12px", whiteSpace:"nowrap" }}>
-                              {isEditing ? <>
-                                <button onClick={saveEdit} style={{ fontSize:11, background:"#16a34a", border:"none",
-                                  color:"#fff", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✓ 儲存</button>
-                                <button onClick={() => setEditingId(null)} style={{ fontSize:11, background:"#334155",
-                                  border:"none", color:"#94a3b8", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>取消</button>
-                              </> : <>
-                                <button onClick={() => startEdit(d)} style={{ fontSize:11, background:"#1e3a5f",
-                                  border:"none", color:"#93c5fd", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✏️ 編輯</button>
-                                <button onClick={() => {
-                                  if (window.confirm("確定刪除？")) {
-                                    setDeclarations(prev => prev.filter(x => x.id !== d.id));
-                                    showToast("已刪除");
-                                  }
-                                }} style={{ fontSize:11, background:"#7f1d1d", border:"none",
-                                  color:"#fca5a5", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>刪除</button>
-                              </>}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          {/* 月份標頭 */}
+          <div onClick={() => setExpandedId(expandedId === month ? null : month)}
+            style={{ display:"flex", alignItems:"center", padding:"13px 18px", cursor:"pointer",
+              background: expandedId === month ? "#172032" : "#1e293b" }}
+            onMouseEnter={e => { if(expandedId !== month) e.currentTarget.style.background="#172032"; }}
+            onMouseLeave={e => { if(expandedId !== month) e.currentTarget.style.background="#1e293b"; }}>
+            <span style={{ fontSize:15, fontWeight:800, color:"#f1f5f9" }}>📅 {month}</span>
+            <span style={{ marginLeft:12, fontSize:12, color:"#64748b" }}>{records.length} 筆記錄</span>
+            <span style={{ marginLeft:8, fontSize:11, color:"#22c55e" }}>
+              {records.filter(r=>r.fileData).length > 0 && `📎 ${records.filter(r=>r.fileData).length} 個附件`}
+            </span>
+            <span style={{ marginLeft:"auto", fontSize:14, color:"#475569" }}>{expandedId === month ? "▲" : "▼"}</span>
           </div>
-        );
-      })}
+
+          {/* 展開：各筆紀錄 */}
+          {expandedId === month && (
+            <div style={{ borderTop:"1px solid #1e3a5f" }}>
+              {records.map(d => {
+                const isEditing = editingId === d.id;
+                const chem = chemicals.find(c => c.id === d.chemicalId);
+                const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                  borderRadius:4, padding:"3px 8px", fontSize:11, width:"100%", boxSizing:"border-box" };
+                return (
+                  <div key={d.id} style={{ padding:"12px 18px", borderBottom:"1px solid #1e3a5f" }}>
+                    {isEditing ? (
+                      /* 編輯模式 */
+                      <div>
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:10 }}>
+                          <div>
+                            <label style={labelS}>管制編號</label>
+                            <select value={editData.chemicalId||""} onChange={e => setEditData({...editData,chemicalId:e.target.value})} style={inS}>
+                              {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={labelS}>運作場所</label>
+                            <input value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>記錄月份</label>
+                            <input type="month" value={editData.yearMonth||""} onChange={e => setEditData({...editData,yearMonth:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>上月結餘</label>
+                            <input type="number" value={editData.prevBalance||""} onChange={e => setEditData({...editData,prevBalance:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>本月使用</label>
+                            <input type="number" value={editData.useAmount||""} onChange={e => setEditData({...editData,useAmount:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>結餘量</label>
+                            <input type="number" value={editData.balance||""} onChange={e => setEditData({...editData,balance:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>單位</label>
+                            <select value={editData.unit||"公克"} onChange={e => setEditData({...editData,unit:e.target.value})} style={inS}>
+                              {["公克","公斤","mL","L"].map(u=><option key={u}>{u}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={labelS}>許可證字號</label>
+                            <input value={editData.permitNo||""} onChange={e => setEditData({...editData,permitNo:e.target.value})} style={inS} />
+                          </div>
+                          <div>
+                            <label style={labelS}>備註</label>
+                            <input value={editData.note||""} onChange={e => setEditData({...editData,note:e.target.value})} style={inS} />
+                          </div>
+                        </div>
+                        {/* 附件編輯 */}
+                        <div style={{ marginBottom:10 }}>
+                          <input ref={editFileRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png"
+                            onChange={e => handleFile(e, true)} style={{ display:"none" }} />
+                          {editData.fileData ? (
+                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                              <span style={{ fontSize:11, color:"#22c55e" }}>📎 {editData.fileName}</span>
+                              <button onClick={() => setEditData({...editData,fileName:"",fileData:""})}
+                                style={{ fontSize:10, background:"#7f1d1d", border:"none", color:"#fca5a5",
+                                  borderRadius:4, padding:"2px 6px", cursor:"pointer" }}>移除</button>
+                              <button onClick={() => editFileRef.current.click()}
+                                style={{ fontSize:10, background:"#334155", border:"none", color:"#94a3b8",
+                                  borderRadius:4, padding:"2px 6px", cursor:"pointer" }}>更換</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => editFileRef.current.click()}
+                              style={{ fontSize:11, background:"#1e293b", border:"1px solid #334155",
+                                color:"#94a3b8", borderRadius:6, padding:"5px 12px", cursor:"pointer" }}>
+                              📁 附上電子檔
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <button onClick={saveEdit} style={{ fontSize:12, background:"#16a34a", border:"none",
+                            color:"#fff", borderRadius:6, padding:"5px 14px", cursor:"pointer" }}>✓ 儲存</button>
+                          <button onClick={() => setEditingId(null)} style={{ fontSize:12, background:"#334155", border:"none",
+                            color:"#94a3b8", borderRadius:6, padding:"5px 12px", cursor:"pointer" }}>取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 顯示模式 */
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:13, fontWeight:700, color:"#f1f5f9" }}>
+                              {chem ? chem.name : d.chemicalId}
+                            </span>
+                            <span style={{ fontSize:11, color:"#475569" }}>{d.chemicalId}</span>
+                            <span style={{ fontSize:11, color:"#64748b" }}>📍 {d.location}</span>
+                          </div>
+                          <div style={{ display:"flex", gap:16, marginTop:6, fontSize:11, flexWrap:"wrap" }}>
+                            <span style={{ color:"#94a3b8" }}>上月結餘：<b style={{color:"#e2e8f0"}}>{d.prevBalance} {d.unit}</b></span>
+                            <span style={{ color:"#94a3b8" }}>本月使用：<b style={{color:"#fbbf24"}}>{d.useAmount} {d.unit}</b></span>
+                            <span style={{ color:"#94a3b8" }}>結餘量：<b style={{color:"#a78bfa"}}>{d.balance} {d.unit}</b></span>
+                            {d.permitNo && <span style={{ color:"#475569" }}>{d.permitNo}</span>}
+                            {d.note && <span style={{ color:"#475569" }}>備註：{d.note}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+                          {d.fileData && (
+                            <button onClick={() => downloadFile(d.fileData, d.fileName)}
+                              style={{ fontSize:11, background:"#14532d", border:"1px solid #16a34a",
+                                color:"#86efac", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>
+                              📎 {d.fileName?.split('.').pop()?.toUpperCase()}
+                            </button>
+                          )}
+                          <button onClick={() => startEdit(d)}
+                            style={{ fontSize:11, background:"#1e3a5f", border:"none",
+                              color:"#93c5fd", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>✏️</button>
+                          <button onClick={() => {
+                            if (window.confirm("確定刪除？")) {
+                              setDeclarations(prev => prev.filter(x => x.id !== d.id));
+                              showToast("已刪除");
+                            }
+                          }} style={{ fontSize:11, background:"#7f1d1d", border:"none",
+                            color:"#fca5a5", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>刪除</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
