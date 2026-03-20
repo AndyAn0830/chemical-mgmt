@@ -1,0 +1,2299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>花蓮慈濟醫院 毒性及關注化學物質管理系統</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script>(function(){var _w=console.warn;console.warn=function(m){if(typeof m==='string'&&m.indexOf('Babel')!==-1)return;_w.apply(console,arguments);};})()</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#0f172a;color:#e2e8f0;font-family:'Noto Sans TC',sans-serif;}
+    #root{height:100vh;}
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:#0f172a;}
+    ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+    select option{background:#1e293b;color:#e2e8f0;}
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="month"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.5;cursor:pointer;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef } = React;
+
+
+// ─── Initial Data ──────────────────────────────────────────────────────────────
+const BUILDINGS = ["大愛樓", "感恩樓", "合心樓", "協力樓"];
+
+const GHS_SYMBOLS = {
+  爆炸物: "💥", 易燃: "🔥", 氧化: "🟠", 壓縮氣體: "🔵",
+  腐蝕: "⚗️", 毒性: "☠️", 刺激: "❗", 健康危害: "⚠️", 環境: "🌿"
+};
+
+const INITIAL_CHEMICALS = [
+  {
+    id: "050-01", name: "丙烯醯胺", enName: "Acrylamide",
+    locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
+    hazard: ["毒性", "健康危害"], category: "毒性化學物質",
+    stock: 2.5, unit: "kg", maxStock: 10,
+    cas: "79-06-1", un: "UN2810",
+    emergencyEquip: ["防毒面具", "化學防護衣", "護目鏡"],
+    sds: { supplier: "Sigma-Aldrich", updated: "2024-01-15", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 2.5
+  },
+  {
+    id: "054-01", name: "三氯甲烷", enName: "Chloroform",
+    locations: [
+      { building: "合心樓", floor: "3F", room: "檢驗科" },
+      { building: "合心樓", floor: "5F", room: "研究部" }
+    ],
+    hazard: ["毒性", "健康危害", "易燃"], category: "毒性化學物質",
+    stock: 5, unit: "L", maxStock: 20,
+    cas: "67-66-3", un: "UN1888",
+    emergencyEquip: ["防毒面具", "化學防護衣", "護目鏡", "防溢圍堵材料"],
+    sds: { supplier: "Merck", updated: "2024-03-20", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 5
+  },
+  {
+    id: "061-01", name: "環氧乙烷", enName: "Ethylene oxide",
+    locations: [{ building: "感恩樓", floor: "B1F", room: "供應中心" }],
+    hazard: ["易燃", "毒性", "健康危害", "爆炸物"], category: "毒性化學物質",
+    stock: 12, unit: "kg", maxStock: 50,
+    cas: "75-21-8", un: "UN1040",
+    emergencyEquip: ["SCBA自攜式空氣呼吸器", "全身化學防護衣", "防爆工具"],
+    sds: { supplier: "工業氣體公司", updated: "2024-06-01", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 12
+  },
+  {
+    id: "066-01", name: "甲醛", enName: "Formaldehyde",
+    locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
+    hazard: ["毒性", "易燃", "健康危害"], category: "毒性化學物質",
+    stock: 8, unit: "L", maxStock: 30,
+    cas: "50-00-0", un: "UN2209",
+    emergencyEquip: ["防毒面具", "化學防護手套", "護目鏡"],
+    sds: { supplier: "Sigma-Aldrich", updated: "2024-02-10", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 8
+  },
+  {
+    id: "083-01", name: "氯乙酸", enName: "Chloroacetic acid",
+    locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
+    hazard: ["腐蝕", "毒性"], category: "毒性化學物質",
+    stock: 1.2, unit: "kg", maxStock: 5,
+    cas: "79-11-8", un: "UN1751",
+    emergencyEquip: ["防腐蝕手套", "護目鏡", "防腐蝕防護衣"],
+    sds: { supplier: "Acros Organics", updated: "2023-12-01", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 1.2
+  },
+  {
+    id: "098-01", name: "二甲基甲醯胺", enName: "N,N-Dimethyl formamide",
+    locations: [{ building: "合心樓", floor: "3F", room: "檢驗科" }],
+    hazard: ["健康危害", "易燃"], category: "毒性化學物質",
+    stock: 3, unit: "L", maxStock: 15,
+    cas: "68-12-2", un: "UN2265",
+    emergencyEquip: ["防毒面具", "化學防護手套", "護目鏡"],
+    sds: { supplier: "Merck", updated: "2024-04-15", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 3
+  },
+  {
+    id: "098-02", name: "甲醯胺", enName: "Formamide",
+    locations: [
+      { building: "合心樓", floor: "5F", room: "研究部" },
+      { building: "大愛樓", floor: "5F", room: "生殖醫學中心" },
+      { building: "協力樓", floor: "2F", room: "HLA實驗室" }
+    ],
+    hazard: ["健康危害", "毒性"], category: "毒性化學物質",
+    stock: 6, unit: "L", maxStock: 20,
+    cas: "75-12-7", un: "UN3265",
+    emergencyEquip: ["防毒面具", "化學防護手套", "護目鏡"],
+    sds: { supplier: "Sigma-Aldrich", updated: "2024-01-20", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 6
+  },
+  {
+    id: "105-01", name: "乙腈", enName: "Acetonitrile",
+    locations: [
+      { building: "合心樓", floor: "5F", room: "研究部" },
+      { building: "合心樓", floor: "3F", room: "檢驗科" },
+      { building: "大愛樓", floor: "6F", room: "核醫製藥科" }
+    ],
+    hazard: ["易燃", "毒性", "健康危害"], category: "毒性化學物質",
+    stock: 15, unit: "L", maxStock: 50,
+    cas: "75-05-8", un: "UN1648",
+    emergencyEquip: ["防毒面具", "防靜電防護衣", "護目鏡", "防爆燈具"],
+    sds: { supplier: "Fisher Scientific", updated: "2024-05-30", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 15
+  },
+  {
+    id: "156-01", name: "氟", enName: "Fluorine",
+    locations: [{ building: "大愛樓", floor: "6F", room: "核醫製藥科" }],
+    hazard: ["毒性", "腐蝕", "氧化"], category: "毒性化學物質",
+    stock: 0.5, unit: "kg", maxStock: 2,
+    cas: "7782-41-4", un: "UN1045",
+    emergencyEquip: ["SCBA自攜式空氣呼吸器", "全身化學防護衣", "防腐蝕手套"],
+    sds: { supplier: "特殊氣體公司", updated: "2024-07-01", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 0.5
+  },
+  {
+    id: "165-02", name: "壬基酚聚乙氧基醇", enName: "Nonylphenol polyethylene glycol ether",
+    locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
+    hazard: ["環境", "健康危害"], category: "毒性化學物質",
+    stock: 4, unit: "L", maxStock: 20,
+    cas: "9016-45-9", un: "UN3082",
+    emergencyEquip: ["防護手套", "護目鏡", "圍堵材料"],
+    sds: { supplier: "Sigma-Aldrich", updated: "2024-03-10", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 4
+  },
+  {
+    id: "L001-01", name: "一氧化二氮(笑氣)", enName: "Nitrous Oxide",
+    locations: [{ building: "感恩樓", floor: "3F", room: "心導管室" }],
+    hazard: ["壓縮氣體", "氧化"], category: "關注化學物質",
+    stock: 25, unit: "kg", maxStock: 100,
+    cas: "10024-97-2", un: "UN1070",
+    emergencyEquip: ["空氣呼吸器", "防護手套", "護目鏡"],
+    sds: { supplier: "工業氣體公司", updated: "2024-08-15", url: "#" },
+    declared: true, declarationDate: "2025-01-10", reportAmount: 25
+  }
+];
+
+const INITIAL_DECLARATIONS = [
+  // 乙腈 105-01
+  { id:1, chemicalId:"105-01", location:"大愛樓6F 核醫製藥科", yearMonth:"2025-05",
+    prevBalance:11.805, unit:"公克", useAmount:0, balance:11.805,
+    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-001", note:"" },
+  { id:2, chemicalId:"105-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
+    prevBalance:500, unit:"公克", useAmount:50, balance:450,
+    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-002", note:"電泳分析用" },
+  { id:3, chemicalId:"105-01", location:"合心樓3F 檢驗科", yearMonth:"2025-05",
+    prevBalance:300, unit:"公克", useAmount:100, balance:200,
+    permitNo:"花蓮縣毒核字第000006號", controlNo:"U9101064", reference:"申報字號-2025-003", note:"HPLC分析" },
+  // 三氯甲烷 054-01
+  { id:4, chemicalId:"054-01", location:"合心樓3F 檢驗科", yearMonth:"2025-05",
+    prevBalance:200, unit:"公克", useAmount:20, balance:180,
+    permitNo:"花蓮縣毒核字第000008號", controlNo:"U9101065", reference:"申報字號-2025-004", note:"" },
+  { id:5, chemicalId:"054-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
+    prevBalance:180, unit:"公克", useAmount:30, balance:150,
+    permitNo:"花蓮縣毒核字第000008號", controlNo:"U9101065", reference:"申報字號-2025-005", note:"" },
+  // 環氧乙烷 061-01
+  { id:6, chemicalId:"061-01", location:"感恩樓B1F 供應中心", yearMonth:"2025-05",
+    prevBalance:2500, unit:"公克", useAmount:500, balance:2000,
+    permitNo:"花蓮縣毒核字第000010號", controlNo:"U9101066", reference:"申報字號-2025-006", note:"滅菌處理" },
+  // 甲醛 066-01
+  { id:7, chemicalId:"066-01", location:"合心樓5F 研究部", yearMonth:"2025-05",
+    prevBalance:1000, unit:"公克", useAmount:100, balance:900,
+    permitNo:"花蓮縣毒核字第000011號", controlNo:"U9101067", reference:"申報字號-2025-007", note:"組織固定" },
+  // 一氧化二氮 L001-01
+  { id:8, chemicalId:"L001-01", location:"感恩樓3F 心導管室", yearMonth:"2025-05",
+    prevBalance:20000, unit:"公斤", useAmount:2000, balance:23000,
+    permitNo:"花蓮縣關注化學第000001號", controlNo:"U9200001", reference:"申報字號-2025-008", note:"本月補充5000公克" },
+];
+
+// ─── Building Floor Plan Data ──────────────────────────────────────────────────
+const FLOOR_PLAN = {
+  "大愛樓": {
+    floors: ["B1F","1F","2F","3F","5F","6F","7F"],
+    rooms: {
+      "5F": [
+        { id: "r1", name: "生殖醫學中心", x: 15, y: 20, w: 30, h: 20, hasChemical: true },
+        { id: "r2", name: "護理站", x: 50, y: 20, w: 20, h: 10 },
+        { id: "r3", name: "走廊", x: 10, y: 45, w: 75, h: 8, isHallway: true },
+        { id: "exit1", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit2", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ],
+      "6F": [
+        { id: "r4", name: "核醫製藥科", x: 15, y: 20, w: 35, h: 22, hasChemical: true },
+        { id: "r5", name: "控制室", x: 55, y: 20, w: 20, h: 15 },
+        { id: "r6", name: "走廊", x: 10, y: 45, w: 75, h: 8, isHallway: true },
+        { id: "exit3", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit4", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ]
+    }
+  },
+  "感恩樓": {
+    floors: ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    rooms: {
+      "B1F": [
+        { id: "r7", name: "供應中心", x: 10, y: 15, w: 50, h: 30, hasChemical: true },
+        { id: "r8", name: "走廊", x: 10, y: 48, w: 75, h: 8, isHallway: true },
+        { id: "exit5", name: "緊急出口(室外)", x: 85, y: 30, w: 5, h: 15, isExit: true },
+      ],
+      "3F": [
+        { id: "r9", name: "心導管室", x: 15, y: 15, w: 35, h: 25, hasChemical: true },
+        { id: "r10", name: "等候室", x: 55, y: 15, w: 20, h: 15 },
+        { id: "r11", name: "走廊", x: 10, y: 45, w: 75, h: 8, isHallway: true },
+        { id: "exit6", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit7", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ]
+    }
+  },
+  "合心樓": {
+    floors: ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    rooms: {
+      "3F": [
+        { id: "r12", name: "檢驗科", x: 10, y: 15, w: 40, h: 28, hasChemical: true },
+        { id: "r13", name: "採血室", x: 55, y: 15, w: 20, h: 15 },
+        { id: "r14", name: "走廊", x: 10, y: 47, w: 75, h: 8, isHallway: true },
+        { id: "exit8", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit9", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ],
+      "5F": [
+        { id: "r15", name: "研究部", x: 10, y: 12, w: 45, h: 32, hasChemical: true },
+        { id: "r16", name: "會議室", x: 60, y: 12, w: 20, h: 15 },
+        { id: "r17", name: "走廊", x: 10, y: 47, w: 75, h: 8, isHallway: true },
+        { id: "exit10", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit11", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ]
+    }
+  },
+  "協力樓": {
+    floors: ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    rooms: {
+      "2F": [
+        { id: "r18", name: "HLA實驗室", x: 20, y: 18, w: 32, h: 25, hasChemical: true },
+        { id: "r19", name: "走廊", x: 10, y: 47, w: 75, h: 8, isHallway: true },
+        { id: "exit12", name: "緊急出口", x: 5, y: 40, w: 5, h: 15, isExit: true },
+        { id: "exit13", name: "緊急出口", x: 85, y: 40, w: 5, h: 15, isExit: true },
+      ]
+    }
+  }
+};
+
+// ─── Utility ───────────────────────────────────────────────────────────────────
+const getStockColor = (stock, max) => {
+  const pct = (stock / max) * 100;
+  if (pct >= 80) return "#ef4444";
+  if (pct >= 50) return "#f59e0b";
+  return "#22c55e";
+};
+
+const getCategoryColor = (cat) =>
+  cat === "毒性化學物質" ? "#ef4444" : "#f59e0b";
+
+// ─── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState("dashboard");
+  const [chemicals, setChemicals] = useState(INITIAL_CHEMICALS);
+  const [declarations, setDeclarations] = useState(INITIAL_DECLARATIONS);
+  const [trainingRecords, setTrainingRecords] = useState([
+    { id:1, date:"2025-03-15", type:"演練", title:"毒化物洩漏緊急應變演練", location:"合心樓5F 研究部",
+      duration:60, instructor:"王環安", result:"通過", note:"參照環保署演練指引" },
+    { id:2, date:"2025-01-20", type:"教育訓練", title:"毒性化學物質操作安全訓練", location:"大愛樓2F 會議室",
+      duration:120, instructor:"李化安", result:"通過", note:"新進人員必修" },
+  ]);
+  const [selectedChem, setSelectedChem] = useState(null);
+  const [editingChem, setEditingChem] = useState(null);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminPw, setAdminPw] = useState("");
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showChemDetail, setShowChemDetail] = useState(false);
+  const [mapBuilding, setMapBuilding] = useState("合心樓");
+  const [mapFloor, setMapFloor] = useState("5F");
+  const [showAddChem, setShowAddChem] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCat, setFilterCat] = useState("全部");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [toast, setToast] = useState(null);
+  // floorPlans: { "合心樓_4F": { url: "data:image/...", name: "4F.png" }, ... }
+  const [floorPlans, setFloorPlans] = useState({});
+  // mapMarkers: { "合心樓_4F": [ { id, x, y, chemId, label }, ... ] }
+  const [mapMarkers, setMapMarkers] = useState({});
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAdminLogin = () => {
+    if (adminPw === "1234" || adminPw === "admin") {
+      setIsAdminMode(true);
+      setShowAdminLogin(false);
+      setAdminPw("");
+      showToast("管理員模式已啟用");
+    } else {
+      showToast("密碼錯誤", "error");
+    }
+  };
+
+  const filteredChemicals = chemicals.filter(c => {
+    const matchSearch = c.name.includes(searchTerm) || c.enName.toLowerCase().includes(searchTerm.toLowerCase()) || c.id.includes(searchTerm);
+    const matchCat = filterCat === "全部" || c.category === filterCat;
+    return matchSearch && matchCat;
+  });
+
+  const stats = {
+    total: chemicals.length,
+    toxic: chemicals.filter(c => c.category === "毒性化學物質").length,
+    concern: chemicals.filter(c => c.category === "關注化學物質").length,
+    declared: chemicals.filter(c => c.declared).length,
+    highStock: chemicals.filter(c => (c.stock / c.maxStock) >= 0.8).length,
+  };
+
+  return (
+    <div style={{ display:"flex", height:"100vh", fontFamily:"'Noto Sans TC', sans-serif", background:"#0f172a", color:"#e2e8f0", overflow:"hidden" }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: sidebarOpen ? 220 : 60, transition:"width 0.3s", background:"#1e293b",
+        borderRight:"1px solid #334155", display:"flex", flexDirection:"column", flexShrink:0
+      }}>
+        <div style={{ padding:"16px 12px", borderBottom:"1px solid #334155", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:22 }}>☣️</span>
+          {sidebarOpen && <span style={{ fontWeight:700, fontSize:13, color:"#38bdf8", letterSpacing:1 }}>化學物質管理</span>}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)}
+            style={{ marginLeft:"auto", background:"none", border:"none", color:"#64748b", cursor:"pointer", fontSize:16 }}>
+            {sidebarOpen ? "◀" : "▶"}
+          </button>
+        </div>
+        {[
+          { id:"dashboard", icon:"📊", label:"儀表板" },
+          { id:"iso", icon:"🏗️", label:"3D大樓檢視" },
+          { id:"map", icon:"🗺️", label:"平面圖" },
+          { id:"chemicals", icon:"🧪", label:"化學品清單" },
+          { id:"sds", icon:"📋", label:"SDS安全資料表" },
+          { id:"declarations", icon:"📝", label:"申報紀錄" },
+          { id:"emergency", icon:"🚨", label:"緊急應變" },
+          { id:"training", icon:"📚", label:"演練/訓練紀錄" },
+        ].map(item => (
+          <button key={item.id} onClick={() => setPage(item.id)}
+            style={{
+              display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+              background: page === item.id ? "#0ea5e9" : "none",
+              border:"none", color: page === item.id ? "#fff" : "#94a3b8",
+              cursor:"pointer", fontSize:13, textAlign:"left", width:"100%",
+              borderLeft: page === item.id ? "3px solid #38bdf8" : "3px solid transparent",
+              transition:"all 0.2s"
+            }}>
+            <span style={{ fontSize:16, flexShrink:0 }}>{item.icon}</span>
+            {sidebarOpen && item.label}
+          </button>
+        ))}
+        <div style={{ marginTop:"auto", padding:12, borderTop:"1px solid #334155" }}>
+          {isAdminMode ? (
+            <button onClick={() => { setIsAdminMode(false); showToast("已退出管理員模式"); }}
+              style={{ width:"100%", padding:"8px 0", background:"#7c3aed", border:"none", borderRadius:6, color:"#fff", cursor:"pointer", fontSize:12 }}>
+              {sidebarOpen ? "🔓 退出管理員" : "🔓"}
+            </button>
+          ) : (
+            <button onClick={() => setShowAdminLogin(true)}
+              style={{ width:"100%", padding:"8px 0", background:"#334155", border:"none", borderRadius:6, color:"#94a3b8", cursor:"pointer", fontSize:12 }}>
+              {sidebarOpen ? "🔒 管理員登入" : "🔒"}
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column" }}>
+        {/* Header */}
+        <header style={{
+          background:"#1e293b", borderBottom:"1px solid #334155",
+          padding:"12px 24px", display:"flex", alignItems:"center", gap:12, flexShrink:0
+        }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, color:"#f1f5f9" }}>花蓮慈濟醫院 毒性及關注化學物質管理系統</div>
+            <div style={{ fontSize:11, color:"#64748b" }}>總務室 環管股 · 化學物質管理平台</div>
+          </div>
+          {isAdminMode && (
+            <span style={{ marginLeft:"auto", background:"#7c3aed", color:"#fff", padding:"3px 10px", borderRadius:20, fontSize:11 }}>
+              ✓ 管理員模式
+            </span>
+          )}
+          <span style={{ marginLeft: isAdminMode ? 8 : "auto", fontSize:11, color:"#64748b" }}>
+            {new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"long", day:"numeric" })}
+          </span>
+        </header>
+
+        {/* Page Content */}
+        <div style={{ flex:1, padding:24, overflow:"auto" }}>
+          {page === "dashboard" && <DashboardPage stats={stats} chemicals={chemicals} setPage={setPage} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} />}
+          {page === "map" && <MapPage chemicals={chemicals} mapBuilding={mapBuilding} setMapBuilding={setMapBuilding} mapFloor={mapFloor} setMapFloor={setMapFloor} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} floorPlans={floorPlans} setFloorPlans={setFloorPlans} mapMarkers={mapMarkers} setMapMarkers={setMapMarkers} isAdminMode={isAdminMode} showToast={showToast} />}
+          {page === "iso" && <IsoPage chemicals={chemicals} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} setPage={setPage} setMapBuilding={setMapBuilding} setMapFloor={setMapFloor} />}
+          {page === "chemicals" && <ChemicalsPage chemicals={filteredChemicals} allChemicals={chemicals} setChemicals={setChemicals} isAdminMode={isAdminMode} searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterCat={filterCat} setFilterCat={setFilterCat} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} setEditingChem={setEditingChem} setShowAddChem={setShowAddChem} showToast={showToast} />}
+          {page === "sds" && <SDSPage chemicals={chemicals} isAdminMode={isAdminMode} setChemicals={setChemicals} showToast={showToast} />}
+          {page === "declarations" && <DeclarationsPage declarations={declarations} chemicals={chemicals} setDeclarations={setDeclarations} isAdminMode={isAdminMode} showToast={showToast} />}
+          {page === "emergency" && <EmergencyPage chemicals={chemicals} />}
+          {page === "training" && <TrainingPage records={trainingRecords} setRecords={setTrainingRecords} isAdminMode={isAdminMode} showToast={showToast} />}
+        </div>
+      </main>
+
+      {/* Modals */}
+      {showAdminLogin && (
+        <Modal title="管理員登入" onClose={() => setShowAdminLogin(false)}>
+          <p style={{ color:"#94a3b8", fontSize:13, marginBottom:16 }}>請輸入管理員密碼（預設: admin）</p>
+          <input value={adminPw} onChange={e => setAdminPw(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+            type="password" placeholder="密碼"
+            style={{ width:"100%", padding:"10px 12px", background:"#0f172a", border:"1px solid #334155", borderRadius:6, color:"#fff", fontSize:14, boxSizing:"border-box" }} />
+          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+            <button onClick={handleAdminLogin} style={btnStyle("#0ea5e9")}>登入</button>
+            <button onClick={() => setShowAdminLogin(false)} style={btnStyle("#334155")}>取消</button>
+          </div>
+        </Modal>
+      )}
+
+      {showChemDetail && selectedChem && (
+        <ChemDetailModal chem={selectedChem} onClose={() => setShowChemDetail(false)} isAdminMode={isAdminMode} chemicals={chemicals} setChemicals={setChemicals} showToast={showToast} />
+      )}
+
+      {showAddChem && (
+        <AddChemModal onClose={() => setShowAddChem(false)} onSave={(c) => {
+          setChemicals(prev => [...prev, c]);
+          setShowAddChem(false);
+          showToast("化學品已新增");
+        }} />
+      )}
+
+      {editingChem && (
+        <EditChemModal chem={editingChem} onClose={() => setEditingChem(null)} onSave={(updated) => {
+          setChemicals(prev => prev.map(c => c.id === updated.id ? updated : c));
+          setEditingChem(null);
+          showToast("資料已更新");
+        }} />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position:"fixed", bottom:24, right:24, background: toast.type === "error" ? "#ef4444" : "#22c55e",
+          color:"#fff", padding:"10px 20px", borderRadius:8, fontSize:13, zIndex:9999,
+          boxShadow:"0 4px 12px rgba(0,0,0,0.4)", animation:"slideIn 0.3s ease"
+        }}>
+          {toast.type === "error" ? "❌ " : "✓ "}{toast.msg}
+        </div>
+      )}
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Dashboard Page ────────────────────────────────────────────────────────────
+function DashboardPage({ stats, chemicals, setPage, setSelectedChem, setShowChemDetail }) {
+  const highStock = chemicals.filter(c => (c.stock / c.maxStock) >= 0.8);
+  const byBuilding = BUILDINGS.map(b => ({
+    name: b,
+    count: chemicals.filter(c => c.locations.some(l => l.building === b)).length
+  }));
+
+  return (
+    <div>
+      <h2 style={{ margin:"0 0 20px", fontSize:20, color:"#f1f5f9" }}>📊 系統總覽</h2>
+
+      {/* Stat Cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12, marginBottom:24 }}>
+        {[
+          { label:"化學品總數", value:stats.total, icon:"🧪", color:"#38bdf8" },
+          { label:"毒性化學物質", value:stats.toxic, icon:"☠️", color:"#ef4444" },
+          { label:"關注化學物質", value:stats.concern, icon:"⚠️", color:"#f59e0b" },
+          { label:"已申報品項", value:stats.declared, icon:"📝", color:"#22c55e" },
+          { label:"存量警示", value:stats.highStock, icon:"🔴", color:"#f87171" },
+        ].map((s, i) => (
+          <div key={i} style={{
+            background:"#1e293b", borderRadius:10, padding:"16px 14px",
+            borderLeft:`3px solid ${s.color}`, cursor:"default"
+          }}>
+            <div style={{ fontSize:24 }}>{s.icon}</div>
+            <div style={{ fontSize:26, fontWeight:700, color:s.color, lineHeight:1.2 }}>{s.value}</div>
+            <div style={{ fontSize:11, color:"#64748b", marginTop:4 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24 }}>
+        {/* By Building */}
+        <div style={{ background:"#1e293b", borderRadius:10, padding:16 }}>
+          <h3 style={{ margin:"0 0 14px", fontSize:14, color:"#94a3b8" }}>🏢 各大樓化學品分佈</h3>
+          {byBuilding.map(b => (
+            <div key={b.name} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+              <span style={{ width:60, fontSize:12, color:"#e2e8f0" }}>{b.name}</span>
+              <div style={{ flex:1, background:"#0f172a", borderRadius:4, height:18, overflow:"hidden" }}>
+                <div style={{
+                  height:"100%", background:"#0ea5e9", borderRadius:4,
+                  width:`${(b.count / stats.total) * 100}%`, transition:"width 0.5s",
+                  display:"flex", alignItems:"center", paddingLeft:6
+                }}>
+                  <span style={{ fontSize:10, color:"#fff" }}>{b.count > 0 ? b.count : ""}</span>
+                </div>
+              </div>
+              <span style={{ fontSize:12, color:"#64748b", width:20 }}>{b.count}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* High Stock Warning */}
+        <div style={{ background:"#1e293b", borderRadius:10, padding:16 }}>
+          <h3 style={{ margin:"0 0 14px", fontSize:14, color:"#94a3b8" }}>⚠️ 存量警示（≥80%）</h3>
+          {highStock.length === 0 ? (
+            <div style={{ color:"#22c55e", fontSize:13 }}>✓ 目前無存量警示</div>
+          ) : highStock.map(c => (
+            <div key={c.id} onClick={() => { setSelectedChem(c); setShowChemDetail(true); }}
+              style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 8px", borderRadius:6, marginBottom:4, background:"#0f172a", cursor:"pointer" }}>
+              <span style={{ fontSize:11, color:"#ef4444" }}>🔴</span>
+              <span style={{ fontSize:12, flex:1 }}>{c.name}</span>
+              <span style={{ fontSize:11, color:"#ef4444" }}>{Math.round((c.stock / c.maxStock) * 100)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Chemicals */}
+      <div style={{ background:"#1e293b", borderRadius:10, padding:16 }}>
+        <div style={{ display:"flex", alignItems:"center", marginBottom:14 }}>
+          <h3 style={{ margin:0, fontSize:14, color:"#94a3b8" }}>🧪 化學品概覽</h3>
+          <button onClick={() => setPage("chemicals")} style={{ marginLeft:"auto", background:"none", border:"1px solid #334155", color:"#38bdf8", borderRadius:6, padding:"4px 12px", cursor:"pointer", fontSize:12 }}>
+            查看全部
+          </button>
+        </div>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+          <thead>
+            <tr style={{ borderBottom:"1px solid #334155" }}>
+              {["品項代碼","名稱","類別","存量","存量比","位置"].map(h => (
+                <th key={h} style={{ padding:"6px 8px", textAlign:"left", color:"#64748b", fontWeight:500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {chemicals.slice(0, 8).map(c => (
+              <tr key={c.id} onClick={() => { setSelectedChem(c); setShowChemDetail(true); }}
+                style={{ borderBottom:"1px solid #1e3a5f", cursor:"pointer" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#0f172a"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <td style={{ padding:"8px 8px", color:"#38bdf8" }}>{c.id}</td>
+                <td style={{ padding:"8px 8px" }}>{c.name}<br /><span style={{ color:"#64748b", fontSize:10 }}>{c.enName}</span></td>
+                <td style={{ padding:"8px 8px" }}>
+                  <span style={{ background: c.category === "毒性化學物質" ? "#7f1d1d" : "#78350f", color: getCategoryColor(c.category), padding:"2px 6px", borderRadius:4, fontSize:10 }}>
+                    {c.category}
+                  </span>
+                </td>
+                <td style={{ padding:"8px 8px" }}>{c.stock} {c.unit}</td>
+                <td style={{ padding:"8px 8px" }}>
+                  <div style={{ width:60, background:"#0f172a", borderRadius:4, height:8 }}>
+                    <div style={{ height:"100%", background: getStockColor(c.stock, c.maxStock), borderRadius:4, width:`${Math.min((c.stock / c.maxStock) * 100, 100)}%` }} />
+                  </div>
+                </td>
+                <td style={{ padding:"8px 8px", color:"#94a3b8", fontSize:11 }}>
+                  {c.locations.map(l => l.room).join(", ")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Map Page (Image Upload + Click-to-Mark) ───────────────────────────────────
+function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor,
+  setSelectedChem, setShowChemDetail, floorPlans, setFloorPlans,
+  mapMarkers, setMapMarkers, isAdminMode, showToast }) {
+
+  const FLOORS_BY_BUILDING = {
+    "大愛樓": ["B1F","1F","2F","3F","5F","6F","7F"],
+    "感恩樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    "合心樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    "協力樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+  };
+  const availableFloors = FLOORS_BY_BUILDING[mapBuilding] || ["1F"];
+  const planKey = `${mapBuilding}_${mapFloor}`;
+  const currentPlan = floorPlans[planKey] || null;
+  const currentMarkers = mapMarkers[planKey] || [];
+
+  const MARKER_TYPES = {
+    chemical: { label:"化學品", color_tox:"#ef4444", color_con:"#f59e0b", icon:"⚗" },
+    disaster: { label:"防災物資", color:"#22c55e", icon:"🛡️" },
+  };
+  const [addingMarker, setAddingMarker] = useState(false); // click-to-add mode
+  const [markerMode, setMarkerMode] = useState("chemical"); // "chemical" | "disaster"
+  const [pendingPos, setPendingPos] = useState(null);       // { x%, y% } awaiting selection
+  const [hoveredMarker, setHoveredMarker] = useState(null);
+  const [selectedMarker, setSelectedMarker] = useState(null);
+  const imgRef = useRef(null);
+  const fileRef = useRef(null);
+
+  // Upload floor plan image
+  const handleUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { showToast("請上傳 PNG 或 JPG 圖片", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setFloorPlans(prev => ({ ...prev, [planKey]: { url: ev.target.result, name: file.name } }));
+      showToast(`${mapBuilding} ${mapFloor} 平面圖已上傳`);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Click on image → record position as percentage
+  const handleImgClick = (e) => {
+    if (!addingMarker || !isAdminMode) return;
+    const rect = imgRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setPendingPos({ x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2)), mode: markerMode });
+    setAddingMarker(false);
+  };
+
+  // Save chemical marker
+  const saveMarker = (chemId, label) => {
+    if (!pendingPos) return;
+    const marker = { id: Date.now(), x: pendingPos.x, y: pendingPos.y, chemId, label, type:"chemical" };
+    setMapMarkers(prev => ({ ...prev, [planKey]: [...(prev[planKey] || []), marker] }));
+    setPendingPos(null);
+    showToast("標記已新增");
+  };
+
+  // Save disaster supplies marker
+  const saveDisasterMarker = (label) => {
+    if (!pendingPos) return;
+    const marker = { id: Date.now(), x: pendingPos.x, y: pendingPos.y, chemId: null, label, type:"disaster" };
+    setMapMarkers(prev => ({ ...prev, [planKey]: [...(prev[planKey] || []), marker] }));
+    setPendingPos(null);
+    showToast("防災物資標記已新增");
+  };
+
+  // Delete a marker
+  const deleteMarker = (markerId) => {
+    setMapMarkers(prev => ({
+      ...prev,
+      [planKey]: (prev[planKey] || []).filter(m => m.id !== markerId)
+    }));
+    setSelectedMarker(null);
+    showToast("標記已刪除");
+  };
+
+  const getChemById = (id) => chemicals.find(c => c.id === id);
+
+  // Chemicals on this floor (from data)
+  const floorChems = chemicals.filter(c =>
+    c.locations.some(l => l.building === mapBuilding && l.floor === mapFloor)
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", marginBottom:16, gap:12 }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>🗺️ 大樓平面圖</h2>
+        {isAdminMode && currentPlan && (
+          <span style={{ fontSize:11, background:"#0c4a6e", color:"#38bdf8", padding:"3px 10px", borderRadius:20 }}>
+            管理員：可上傳圖片 / 新增標記
+          </span>
+        )}
+      </div>
+
+      {/* Building + Floor selectors */}
+      <div style={{ display:"flex", gap:16, marginBottom:16, flexWrap:"wrap" }}>
+        <div>
+          <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>大樓</div>
+          <div style={{ display:"flex", gap:6 }}>
+            {BUILDINGS.map(b => (
+              <button key={b} onClick={() => { setMapBuilding(b); setMapFloor(FLOORS_BY_BUILDING[b][0]); setAddingMarker(false); setPendingPos(null); setSelectedMarker(null); }}
+                style={{ padding:"6px 12px", borderRadius:6, border:"1px solid", fontSize:12, cursor:"pointer",
+                  borderColor: mapBuilding === b ? "#0ea5e9" : "#334155",
+                  background: mapBuilding === b ? "#0c4a6e" : "#1e293b",
+                  color: mapBuilding === b ? "#38bdf8" : "#94a3b8" }}>
+                {b}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>樓層</div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            {availableFloors.map(f => (
+              <button key={f} onClick={() => { setMapFloor(f); setAddingMarker(false); setPendingPos(null); setSelectedMarker(null); }}
+                style={{ padding:"6px 10px", borderRadius:6, border:"1px solid", fontSize:12, cursor:"pointer",
+                  borderColor: mapFloor === f ? "#0ea5e9" : "#334155",
+                  background: mapFloor === f ? "#0c4a6e" : "#1e293b",
+                  color: mapFloor === f ? "#38bdf8" : "#94a3b8",
+                  position:"relative"
+                }}>
+                {f}
+                {floorPlans[`${mapBuilding}_${f}`] && (
+                  <span style={{ position:"absolute", top:-4, right:-4, width:8, height:8, background:"#22c55e", borderRadius:"50%", fontSize:0 }} />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 290px", gap:16 }}>
+        {/* Map Area */}
+        <div style={{ background:"#1e293b", borderRadius:10, padding:16 }}>
+          <div style={{ display:"flex", alignItems:"center", marginBottom:10, gap:8 }}>
+            <span style={{ fontSize:13, color:"#94a3b8", fontWeight:600 }}>{mapBuilding} · {mapFloor}</span>
+            {currentPlan && <span style={{ fontSize:11, color:"#475569" }}>· {currentPlan.name}</span>}
+
+            <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+              {/* Upload button - always visible so anyone can see how it works, but only admin can upload */}
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} style={{ display:"none" }} />
+              {isAdminMode && (
+                <button onClick={() => fileRef.current.click()}
+                  style={{ ...btnStyle(currentPlan ? "#334155" : "#0ea5e9"), fontSize:11, padding:"5px 12px" }}>
+                  {currentPlan ? "🔄 更換圖片" : "📁 上傳平面圖"}
+                </button>
+              )}
+              {isAdminMode && currentPlan && !addingMarker && (
+                <button onClick={() => { setAddingMarker(true); setSelectedMarker(null); }}
+                  style={{ ...btnStyle("#7c3aed"), fontSize:11, padding:"5px 12px" }}>
+                  📍 新增標記
+                </button>
+              )}
+              {addingMarker && (
+                <button onClick={() => { setAddingMarker(false); setPendingPos(null); }}
+                  style={{ ...btnStyle("#ef4444"), fontSize:11, padding:"5px 12px" }}>
+                  ✕ 取消
+                </button>
+              )}
+              {isAdminMode && currentPlan && (
+                <button onClick={() => {
+                  if (window.confirm(`確定要刪除 ${mapBuilding} ${mapFloor} 的平面圖和所有標記？`)) {
+                    setFloorPlans(prev => { const n={...prev}; delete n[planKey]; return n; });
+                    setMapMarkers(prev => { const n={...prev}; delete n[planKey]; return n; });
+                    showToast("平面圖已刪除");
+                  }
+                }} style={{ ...btnStyle("#7f1d1d"), fontSize:11, padding:"5px 12px" }}>
+                  🗑️
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Status hint when in add-marker mode */}
+          {addingMarker && (
+            <div style={{ background:"#7c3aed", borderRadius:6, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#e9d5ff" }}>
+              📍 請在下方平面圖上點擊要標記化學品的位置
+            </div>
+          )}
+
+          {/* Image area */}
+          {!currentPlan ? (
+            /* No image uploaded yet */
+            <div style={{
+              border:"2px dashed #334155", borderRadius:8, minHeight:320,
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12
+            }}>
+              <div style={{ fontSize:48, opacity:0.3 }}>🗺️</div>
+              <div style={{ fontSize:14, color:"#475569" }}>{mapBuilding} {mapFloor} 尚未上傳平面圖</div>
+              {isAdminMode ? (
+                <div style={{ textAlign:"center" }}>
+                  <button onClick={() => fileRef.current.click()} style={{ ...btnStyle("#0ea5e9"), fontSize:13 }}>
+                    📁 上傳 PNG / JPG 平面圖
+                  </button>
+                  <div style={{ fontSize:11, color:"#475569", marginTop:8 }}>
+                    建議：先截圖或掃描各樓層平面圖再上傳
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize:12, color:"#475569" }}>請由管理員上傳平面圖</div>
+              )}
+            </div>
+          ) : (
+            /* Image with markers overlay */
+            <div style={{ position:"relative", display:"inline-block", width:"100%", borderRadius:8, overflow:"hidden",
+              cursor: addingMarker ? "crosshair" : "default", border:"1px solid #334155"
+            }}>
+              <img ref={imgRef} src={currentPlan.url} alt={`${mapBuilding} ${mapFloor}`}
+                onClick={handleImgClick}
+                style={{ width:"100%", display:"block", userSelect:"none", WebkitUserDrag:"none" }}
+                draggable={false}
+              />
+              {/* Markers */}
+              {currentMarkers.map(m => {
+                const chem = getChemById(m.chemId);
+                const isHov = hoveredMarker === m.id;
+                const isSel = selectedMarker?.id === m.id;
+                return (
+                  <div key={m.id}
+                    style={{ position:"absolute", left:`${m.x}%`, top:`${m.y}%`, transform:"translate(-50%,-100%)", zIndex:10, cursor:"pointer" }}
+                    onMouseEnter={() => setHoveredMarker(m.id)}
+                    onMouseLeave={() => setHoveredMarker(null)}
+                    onClick={e => { e.stopPropagation(); setSelectedMarker(m); setAddingMarker(false); }}>
+                    {/* Pin */}
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+                      <div style={{
+                        background: chem?.category === "毒性化學物質" ? "#ef4444" : "#f59e0b",
+                        border:"2px solid #fff", borderRadius:"50% 50% 50% 0", transform:"rotate(-45deg)",
+                        width: isSel ? 22 : 18, height: isSel ? 22 : 18,
+                        boxShadow:"0 2px 8px rgba(0,0,0,0.5)", transition:"all 0.15s",
+                        display:"flex", alignItems:"center", justifyContent:"center"
+                      }}>
+                        <span style={{ transform:"rotate(45deg)", fontSize: isSel ? 10 : 8 }}>⚗</span>
+                      </div>
+                    </div>
+                    {/* Tooltip */}
+                    {(isHov || isSel) && (
+                      <div style={{
+                        position:"absolute", bottom:"110%", left:"50%", transform:"translateX(-50%)",
+                        background:"#0f172a", border:`1px solid ${chem?.category === "毒性化學物質" ? "#ef4444" : "#f59e0b"}`,
+                        borderRadius:6, padding:"6px 10px", whiteSpace:"nowrap", minWidth:140,
+                        boxShadow:"0 4px 12px rgba(0,0,0,0.6)", zIndex:20
+                      }}>
+                        <div style={{ fontSize:11, fontWeight:700, color:"#f1f5f9" }}>{m.label || chem?.name}</div>
+                        {chem && <div style={{ fontSize:10, color:"#64748b" }}>{chem.id} · {chem.enName}</div>}
+                        {chem && <div style={{ fontSize:10, color:"#94a3b8", marginTop:2 }}>存量：{chem.stock} {chem.unit}</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Legend */}
+          {currentPlan && (
+            <div style={{ display:"flex", gap:16, marginTop:10, fontSize:11, color:"#64748b" }}>
+              <span><span style={{ display:"inline-block", width:10, height:10, background:"#ef4444", borderRadius:"50%", marginRight:4 }} />毒性化學物質</span>
+              <span><span style={{ display:"inline-block", width:10, height:10, background:"#f59e0b", borderRadius:"50%", marginRight:4 }} />關注化學物質</span>
+              <span><span style={{ display:"inline-block", width:10, height:10, background:"#22c55e", borderRadius:2, marginRight:4 }} />防災物資</span>
+              <span style={{ marginLeft:"auto" }}>標記數：{currentMarkers.length}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Right panel */}
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+
+          {/* Pending: choose chemical to mark */}
+          {pendingPos && (
+            <div style={{ background: pendingPos.mode === "disaster" ? "#14532d" : "#1e3a5f", borderRadius:10, padding:14,
+              border:`1px solid ${pendingPos.mode === "disaster" ? "#22c55e" : "#0ea5e9"}` }}>
+              {pendingPos.mode === "disaster" ? (<>
+                <div style={{ fontSize:12, fontWeight:700, color:"#86efac", marginBottom:10 }}>🛡️ 設定防災物資標記</div>
+                <div style={{ fontSize:11, color:"#64748b", marginBottom:8 }}>位置：({pendingPos.x}%, {pendingPos.y}%)</div>
+                {[
+                  "滅火器","急救箱/AED","防護裝備（PPE）",
+                  "防溢圍堵材料","緊急沖眼站","防毒面具",
+                  "緊急應變箱","消防栓","緊急出口指示"
+                ].map(label => (
+                  <button key={label} onClick={() => saveDisasterMarker(label)}
+                    style={{ display:"block", width:"100%", textAlign:"left", padding:"7px 10px", background:"#0f172a",
+                      border:"1px solid #16a34a33", borderRadius:6, color:"#e2e8f0", cursor:"pointer", fontSize:12, marginBottom:4 }}
+                    onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
+                    onMouseLeave={e => e.currentTarget.style.background="#0f172a"}>
+                    🛡️ {label}
+                  </button>
+                ))}
+              </>) : (<>
+                <div style={{ fontSize:12, fontWeight:700, color:"#38bdf8", marginBottom:10 }}>📍 選擇要標記的化學品</div>
+                <div style={{ fontSize:11, color:"#64748b", marginBottom:8 }}>位置：({pendingPos.x}%, {pendingPos.y}%)</div>
+                <div style={{ maxHeight:220, overflow:"auto", display:"flex", flexDirection:"column", gap:4 }}>
+                  {chemicals.map(c => (
+                    <button key={c.id} onClick={() => saveMarker(c.id, c.name)}
+                      style={{ textAlign:"left", padding:"7px 10px", background:"#0f172a", border:`1px solid ${getCategoryColor(c.category)}33`,
+                        borderRadius:6, color:"#e2e8f0", cursor:"pointer", fontSize:12 }}
+                      onMouseEnter={e => e.currentTarget.style.background="#1e293b"}
+                      onMouseLeave={e => e.currentTarget.style.background="#0f172a"}>
+                      <span style={{ color: getCategoryColor(c.category) }}>●</span> {c.name}
+                      <span style={{ color:"#475569", fontSize:10, marginLeft:6 }}>{c.id}</span>
+                    </button>
+                  ))}
+                </div>
+              </>)}
+              <button onClick={() => setPendingPos(null)} style={{ ...btnStyle("#334155"), width:"100%", marginTop:8, fontSize:11 }}>取消</button>
+            </div>
+          )}
+
+          {/* Selected marker detail */}
+          {selectedMarker && !pendingPos && (() => {
+            const chem = getChemById(selectedMarker.chemId);
+            return (
+              <div style={{ background:"#1e293b", borderRadius:10, padding:14, border:`1px solid ${getCategoryColor(chem?.category || "")}` }}>
+                <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:"#f1f5f9" }}>{selectedMarker.label}</span>
+                  <button onClick={() => setSelectedMarker(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"#64748b", cursor:"pointer" }}>✕</button>
+                </div>
+                {chem && (
+                  <>
+                    <div style={{ fontSize:11, color:"#64748b" }}>{chem.id} · {chem.enName}</div>
+                    <div style={{ fontSize:11, color:"#94a3b8", marginTop:6 }}>
+                      存量：<span style={{ color: getStockColor(chem.stock, chem.maxStock) }}>{chem.stock} {chem.unit}</span> / {chem.maxStock} {chem.unit}
+                    </div>
+                    <div style={{ display:"flex", gap:4, marginTop:6, flexWrap:"wrap" }}>
+                      {chem.hazard.map(h => <span key={h} style={{ fontSize:11 }}>{GHS_SYMBOLS[h]}</span>)}
+                    </div>
+                    <div style={{ display:"flex", gap:6, marginTop:10 }}>
+                      <button onClick={() => { setSelectedChem(chem); setShowChemDetail(true); }}
+                        style={{ ...btnStyle("#0ea5e9"), flex:1, fontSize:11, padding:"5px 0" }}>詳細資訊</button>
+                      {isAdminMode && (
+                        <button onClick={() => deleteMarker(selectedMarker.id)}
+                          style={{ ...btnStyle("#7f1d1d"), flex:1, fontSize:11, padding:"5px 0" }}>刪除標記</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Floor chemical list */}
+          <div style={{ background:"#1e293b", borderRadius:10, padding:14, flex:1, overflow:"auto" }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"#94a3b8", marginBottom:10 }}>
+              此樓層化學品紀錄 ({floorChems.length})
+            </div>
+            {floorChems.length === 0 ? (
+              <div style={{ fontSize:12, color:"#475569", textAlign:"center", padding:20 }}>
+                此樓層無化學品記錄
+              </div>
+            ) : floorChems.map(c => (
+              <div key={c.id} onClick={() => { setSelectedChem(c); setShowChemDetail(true); }}
+                style={{ padding:"8px 10px", background:"#0f172a", borderRadius:6, marginBottom:6, cursor:"pointer",
+                  borderLeft:`3px solid ${getCategoryColor(c.category)}` }}
+                onMouseEnter={e => e.currentTarget.style.background = "#172032"}
+                onMouseLeave={e => e.currentTarget.style.background = "#0f172a"}>
+                <div style={{ fontSize:12, fontWeight:600, color:"#e2e8f0" }}>{c.name}</div>
+                <div style={{ fontSize:10, color:"#64748b" }}>{c.id}</div>
+                <div style={{ fontSize:10, color:"#94a3b8", marginTop:2 }}>存量：{c.stock} {c.unit}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Upload hint for non-admin */}
+          {!isAdminMode && (
+            <div style={{ background:"#1e293b", borderRadius:8, padding:12, fontSize:11, color:"#475569", textAlign:"center" }}>
+              🔒 請以管理員身份登入<br />以上傳平面圖及新增標記
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Campus Map Page ─────────────────────────────────────────────────────────
+const BUILDING_ZONES = [
+  { name:"感恩樓", color:"#16a34a", accent:"#86efac",
+    grid:{ col:1, row:1, colSpan:1, rowSpan:1 } },
+  { name:"協力樓", color:"#b45309", accent:"#fbbf24",
+    grid:{ col:2, row:1, colSpan:1, rowSpan:1 } },
+  { name:"大愛樓", color:"#1d4ed8", accent:"#93c5fd",
+    grid:{ col:1, row:2, colSpan:1, rowSpan:1 } },
+  { name:"合心樓", color:"#7c3aed", accent:"#c4b5fd",
+    grid:{ col:2, row:2, colSpan:1, rowSpan:1 } },
+];
+
+function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMapBuilding, setMapFloor }) {
+  const [hoveredBuilding, setHoveredBuilding] = useState(null);
+
+  const getBuildingChemCount = (bName) =>
+    chemicals.filter(c => c.locations.some(l => l.building === bName)).length;
+
+  const handleBuildingClick = (b) => {
+    const FLOORS = {
+      "大愛樓": ["B1F","1F","2F","3F","5F","6F","7F"],
+      "感恩樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+      "合心樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+      "協力樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    };
+    const chems = chemicals.filter(c => c.locations.some(l => l.building === b.name));
+    const usedFloors = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.floor)))];
+    const firstFloor = usedFloors[0] || FLOORS[b.name]?.[0] || "1F";
+    setMapBuilding(b.name);
+    setMapFloor(firstFloor);
+    setPage("map");
+  };
+
+  return (
+    <div>
+      <h2 style={{ margin:"0 0 4px", fontSize:20, color:"#f1f5f9" }}>🏥 花蓮慈濟醫院 院區配置</h2>
+      <p style={{ margin:"0 0 16px", fontSize:13, color:"#64748b" }}>點擊大樓可跳轉至該棟平面圖與化學品分佈</p>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 260px", gap:16, alignItems:"start" }}>
+
+        {/* ── 示意圖 ── */}
+        <div style={{ background:"#1e293b", borderRadius:12, padding:20 }}>
+
+          {/* 西側標示（上方） */}
+          <div style={{ borderBottom:"2px dashed #334155", paddingBottom:4, marginBottom:8,
+            fontSize:11, color:"#475569", textAlign:"center", letterSpacing:2 }}>
+            西
+          </div>
+
+          {/* 格局主體 + 右側中山路 */}
+          <div style={{ display:"flex", alignItems:"stretch", gap:6 }}>
+            <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr",
+              gridTemplateRows:"1fr 1fr", gap:10, minHeight:280 }}>
+              {BUILDING_ZONES.map(b => {
+                const count = getBuildingChemCount(b.name);
+                const isHov = hoveredBuilding === b.name;
+                const g = b.grid;
+                return (
+                  <div key={b.name}
+                    onClick={() => handleBuildingClick(b)}
+                    onMouseEnter={() => setHoveredBuilding(b.name)}
+                    onMouseLeave={() => setHoveredBuilding(null)}
+                    style={{
+                      gridColumn:`${g.col} / span ${g.colSpan}`,
+                      gridRow:`${g.row} / span ${g.rowSpan}`,
+                      border:`2px solid ${isHov ? b.accent : b.color}`,
+                      background: isHov ? `${b.color}28` : `${b.color}12`,
+                      borderRadius:10, cursor:"pointer",
+                      transition:"all 0.18s",
+                      display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center",
+                      gap:8, padding:12,
+                      boxShadow: isHov ? `0 0 0 3px ${b.color}44` : "none",
+                    }}>
+                    <div style={{
+                      fontSize:16, fontWeight:800, color: isHov ? b.accent : "#e2e8f0",
+                      letterSpacing:2, textShadow: isHov ? `0 0 12px ${b.color}` : "none"
+                    }}>
+                      {b.name}
+                    </div>
+                    {count > 0 ? (
+                      <div style={{
+                        background:"#ef444422", border:"1px solid #ef4444",
+                        color:"#f87171", fontSize:11, fontWeight:700,
+                        padding:"3px 10px", borderRadius:20
+                      }}>
+                        ⚗ {count} 種化學品
+                      </div>
+                    ) : (
+                      <div style={{ fontSize:11, color:"#334155" }}>無化學品</div>
+                    )}
+                    {isHov && (
+                      <div style={{ fontSize:10, color:b.accent, opacity:0.9 }}>點擊查看平面圖 →</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 右側：中山路（北） */}
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", paddingLeft:6, borderLeft:"2px dashed #334155" }}>
+              <span style={{ fontSize:11, color:"#475569", writingMode:"vertical-rl",
+                letterSpacing:2 }}>中山路（北）</span>
+            </div>
+          </div>
+
+          {/* 下方：中央路三段（東） */}
+          <div style={{ borderTop:"2px dashed #334155", marginTop:8, paddingTop:4,
+            fontSize:11, color:"#475569", letterSpacing:1, textAlign:"center" }}>
+            中央路三段（東）
+          </div>
+          <div style={{ fontSize:11, color:"#475569", marginTop:6, textAlign:"center" }}>
+            點擊大樓可跳轉至平面圖
+          </div>
+        </div>
+
+        {/* ── 大樓資訊卡 ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {BUILDING_ZONES.map(b => {
+            const chems = chemicals.filter(c => c.locations.some(l => l.building === b.name));
+            const rooms = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.room)))];
+            return (
+              <div key={b.name} onClick={() => handleBuildingClick(b)}
+                style={{
+                  background:"#0f172a", borderRadius:10, padding:"12px 14px",
+                  borderLeft:`3px solid ${b.color}`, cursor:"pointer",
+                  transition:"transform 0.15s, box-shadow 0.15s"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform="translateX(3px)"; e.currentTarget.style.boxShadow=`-3px 0 0 ${b.color}`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:b.accent }}>{b.name}</span>
+                  <span style={{ marginLeft:"auto", fontSize:11, background:"#1e293b", padding:"2px 8px", borderRadius:20, color: chems.length>0?"#f87171":"#475569" }}>
+                    {chems.length > 0 ? `⚗ ${chems.length}種` : "無化學品"}
+                  </span>
+                </div>
+                {rooms.length > 0 && (
+                  <div style={{ fontSize:11, color:"#64748b", marginTop:4 }}>{rooms.join("、")}</div>
+                )}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginTop:6 }}>
+                  {chems.map(c => (
+                    <span key={c.id} onClick={e => { e.stopPropagation(); setSelectedChem(c); setShowChemDetail(true); }}
+                      style={{ fontSize:10, background:"#1e293b", padding:"1px 6px", borderRadius:3, color:"#e2e8f0", cursor:"pointer" }}>
+                      {c.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Chemicals Page ────────────────────────────────────────────────────────────
+function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, searchTerm, setSearchTerm, filterCat, setFilterCat, setSelectedChem, setShowChemDetail, setEditingChem, setShowAddChem, showToast }) {
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", marginBottom:20, gap:12 }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>🧪 化學品清單</h2>
+        <button onClick={() => setShowAddChem(true)} style={{ ...btnStyle("#0ea5e9"), marginLeft:"auto", padding:"8px 16px" }}>
+          ＋ 新增化學品
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+        <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+          placeholder="搜尋品名、英文名或代碼..."
+          style={{ flex:1, padding:"8px 12px", background:"#1e293b", border:"1px solid #334155", borderRadius:6, color:"#fff", fontSize:13 }} />
+        {["全部","毒性化學物質","關注化學物質"].map(cat => (
+          <button key={cat} onClick={() => setFilterCat(cat)}
+            style={{ padding:"8px 14px", borderRadius:6, border:"1px solid", fontSize:12, cursor:"pointer",
+              borderColor: filterCat === cat ? "#0ea5e9" : "#334155",
+              background: filterCat === cat ? "#0c4a6e" : "#1e293b",
+              color: filterCat === cat ? "#38bdf8" : "#94a3b8"
+            }}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:12 }}>
+        {chemicals.map(c => (
+          <div key={c.id} style={{
+            background:"#1e293b", borderRadius:10, padding:16, cursor:"pointer",
+            borderLeft:`3px solid ${getCategoryColor(c.category)}`,
+            transition:"transform 0.2s, box-shadow 0.2s"
+          }}
+            onClick={() => { setSelectedChem(c); setShowChemDetail(true); }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
+            <div style={{ display:"flex", alignItems:"flex-start" }}>
+              <div>
+                <div style={{ fontSize:11, color:"#64748b" }}>{c.id}</div>
+                <div style={{ fontSize:15, fontWeight:700, color:"#f1f5f9", marginTop:2 }}>{c.name}</div>
+                <div style={{ fontSize:11, color:"#94a3b8" }}>{c.enName}</div>
+              </div>
+              <span style={{ marginLeft:"auto", fontSize:11, background: c.category === "毒性化學物質" ? "#7f1d1d" : "#78350f",
+                color: getCategoryColor(c.category), padding:"2px 8px", borderRadius:20 }}>
+                {c.category === "毒性化學物質" ? "毒性" : "關注"}
+              </span>
+            </div>
+
+            <div style={{ display:"flex", gap:4, marginTop:10, flexWrap:"wrap" }}>
+              {c.hazard.map(h => <span key={h} style={{ fontSize:10, color:"#fbbf24" }}>{GHS_SYMBOLS[h]}</span>)}
+            </div>
+
+            <div style={{ marginTop:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#94a3b8", marginBottom:4 }}>
+                <span>存量</span>
+                <span>{c.stock} / {c.maxStock} {c.unit}</span>
+              </div>
+              <div style={{ background:"#0f172a", borderRadius:4, height:6, overflow:"hidden" }}>
+                <div style={{ height:"100%", background: getStockColor(c.stock, c.maxStock), borderRadius:4, width:`${Math.min((c.stock / c.maxStock) * 100, 100)}%` }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
+              <span style={{ fontSize:10, color:"#64748b" }}>
+                📍 {c.locations.map(l => l.building).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+              </span>
+              <span style={{ fontSize:10, color: c.declared ? "#22c55e" : "#94a3b8", marginLeft:"auto" }}>
+                {c.declared ? "✓ 已申報" : "○ 未申報"}
+              </span>
+            </div>
+
+            <div style={{ display:"flex", gap:6, marginTop:10 }}>
+                <button onClick={e => { e.stopPropagation(); setEditingChem(c); }}
+                  style={{ flex:1, ...btnStyle("#334155"), fontSize:11, padding:"4px 0" }}>
+                  ✏️ 編輯
+                </button>
+                <button onClick={e => {
+                  e.stopPropagation();
+                  if (window.confirm(`確定要刪除「${c.name}」？`)) {
+                    setChemicals(prev => prev.filter(x => x.id !== c.id));
+                    showToast(`${c.name} 已刪除`);
+                  }
+                }} style={{ flex:1, ...btnStyle("#7f1d1d"), fontSize:11, padding:"4px 0" }}>
+                  🗑️ 刪除
+                </button>
+              </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── SDS Page ─────────────────────────────────────────────────────────────────
+function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
+  const [selected, setSelected] = useState(null);
+
+  return (
+    <div>
+      <h2 style={{ margin:"0 0 20px", fontSize:20, color:"#f1f5f9" }}>📋 安全資料表 (SDS)</h2>
+      <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:16, height:"calc(100vh - 200px)" }}>
+        {/* List */}
+        <div style={{ background:"#1e293b", borderRadius:10, overflow:"auto" }}>
+          <div style={{ padding:"12px 14px", borderBottom:"1px solid #334155", fontSize:12, color:"#64748b", fontWeight:600 }}>
+            共 {chemicals.length} 筆化學品
+          </div>
+          {chemicals.map(c => (
+            <div key={c.id} onClick={() => setSelected(c)}
+              style={{ padding:"10px 14px", borderBottom:"1px solid #1e3a5f", cursor:"pointer",
+                background: selected?.id === c.id ? "#0c4a6e" : "transparent",
+                borderLeft: selected?.id === c.id ? "3px solid #38bdf8" : "3px solid transparent"
+              }}
+              onMouseEnter={e => { if (selected?.id !== c.id) e.currentTarget.style.background = "#172032"; }}
+              onMouseLeave={e => { if (selected?.id !== c.id) e.currentTarget.style.background = "transparent"; }}>
+              <div style={{ fontSize:12, fontWeight:600, color:"#e2e8f0" }}>{c.name}</div>
+              <div style={{ fontSize:10, color:"#64748b", marginTop:2 }}>{c.id} · {c.sds.supplier}</div>
+              <div style={{ fontSize:10, color:"#475569" }}>更新：{c.sds.updated}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* SDS Detail */}
+        <div style={{ background:"#1e293b", borderRadius:10, padding:20, overflow:"auto" }}>
+          {!selected ? (
+            <div style={{ textAlign:"center", padding:60, color:"#475569" }}>
+              ← 請選擇左側化學品查看 SDS
+            </div>
+          ) : (
+            <div>
+              <div style={{ display:"flex", alignItems:"flex-start", marginBottom:20 }}>
+                <div>
+                  <h3 style={{ margin:0, fontSize:18, color:"#f1f5f9" }}>{selected.name}</h3>
+                  <div style={{ fontSize:13, color:"#94a3b8" }}>{selected.enName}</div>
+                </div>
+                {isAdminMode && (
+                  <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+                    <button style={btnStyle("#0ea5e9")} onClick={() => {
+                      const url = prompt("輸入 SDS 文件 URL:", selected.sds.url);
+                      if (url !== null) {
+                        setChemicals(prev => prev.map(c => c.id === selected.id ? {...c, sds:{...c.sds, url}} : c));
+                        setSelected(s => ({...s, sds:{...s.sds, url}}));
+                        showToast("SDS URL 已更新");
+                      }
+                    }}>🔗 更新連結</button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:20 }}>
+                {[
+                  { label:"CAS 編號", value:selected.cas },
+                  { label:"UN 編號", value:selected.un },
+                  { label:"供應商", value:selected.sds.supplier },
+                  { label:"最後更新", value:selected.sds.updated },
+                  { label:"化學品類別", value:selected.category },
+                  { label:"申報狀態", value:selected.declared ? "已申報" : "未申報" },
+                ].map(item => (
+                  <div key={item.label} style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px" }}>
+                    <div style={{ fontSize:10, color:"#64748b", marginBottom:4 }}>{item.label}</div>
+                    <div style={{ fontSize:13, color:"#e2e8f0" }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <SDSSection title="⚠️ GHS 危害標示" color="#f59e0b">
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                    {selected.hazard.map(h => (
+                      <div key={h} style={{ textAlign:"center", padding:"8px 12px", background:"#1e293b", borderRadius:6 }}>
+                        <div style={{ fontSize:24 }}>{GHS_SYMBOLS[h]}</div>
+                        <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
+                      </div>
+                    ))}
+                  </div>
+                </SDSSection>
+
+                <SDSSection title="🛡️ 防護裝備" color="#38bdf8">
+                  {selected.emergencyEquip.map(e => (
+                    <div key={e} style={{ fontSize:12, color:"#e2e8f0", padding:"4px 0", borderBottom:"1px solid #1e3a5f" }}>
+                      ✓ {e}
+                    </div>
+                  ))}
+                </SDSSection>
+
+
+
+                <SDSSection title="📍 存放位置" color="#a78bfa">
+                  {selected.locations.map((l, i) => (
+                    <div key={i} style={{ fontSize:12, color:"#e2e8f0", padding:"4px 0", borderBottom:"1px solid #1e3a5f" }}>
+                      🏢 {l.building} {l.floor} · {l.room}
+                    </div>
+                  ))}
+                </SDSSection>
+              </div>
+
+              <div style={{ marginTop:16, padding:12, background:"#0f172a", borderRadius:6, display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:12, color:"#64748b" }}>📄 SDS 原始文件：</span>
+                <a href={selected.sds.url} target="_blank" rel="noreferrer"
+                  style={{ fontSize:12, color:"#38bdf8", textDecoration:"none" }}>
+                  查看/下載 SDS ↗
+                </a>
+                <span style={{ fontSize:11, color:"#475569", marginLeft:"auto" }}>
+                  {selected.sds.supplier} · 更新於 {selected.sds.updated}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SDSSection({ title, color, children }) {
+  return (
+    <div style={{ background:"#0f172a", borderRadius:8, padding:14, borderTop:`2px solid ${color}` }}>
+      <div style={{ fontSize:12, fontWeight:600, color, marginBottom:10 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+// ─── Declarations Page ────────────────────────────────────────────────────────
+function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMode, showToast }) {
+  const [selectedYearMonth, setSelectedYearMonth] = useState("");
+  const [expandedChem, setExpandedChem] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [showImportGuide, setShowImportGuide] = useState(false);
+  const xlsxRef = React.useRef(null);
+
+  const EMPTY_FORM = {
+    chemicalId:"", location:"", yearMonth:"", prevBalance:"", unit:"公克",
+    useAmount:"", balance:"", permitNo:"", controlNo:"",
+    reference:"", note:""
+  };
+  const [newDecl, setNewDecl] = useState(EMPTY_FORM);
+
+  const getChemName = (id) => {
+    const c = chemicals.find(c => c.id === id);
+    return c ? `${c.name} (${id})` : id;
+  };
+  const getChemEnName = (id) => chemicals.find(c => c.id === id)?.enName || "";
+
+  // 篩選月份列表
+  const allMonths = [...new Set(declarations.map(d => d.yearMonth))].sort().reverse();
+  const filtered = selectedYearMonth
+    ? declarations.filter(d => d.yearMonth === selectedYearMonth)
+    : declarations;
+
+  // 依化學品分組
+  const chemGroups = chemicals
+    .filter(c => filtered.some(d => d.chemicalId === c.id))
+    .map(c => ({
+      chem: c,
+      records: filtered.filter(d => d.chemicalId === c.id)
+    }));
+
+  // 統計
+  const stats = {
+    total: filtered.length,
+    chemCount: chemGroups.length,
+  };
+
+  // Excel 匯入
+  const handleExcelImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      if (!window.XLSX) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const buf = await file.arrayBuffer();
+      const wb = window.XLSX.read(buf, { type:"array" });
+      const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:"" });
+      if (!rows.length) { showToast("Excel 沒有資料", "error"); return; }
+      const FIELD_MAP = {
+        "管制編號":"chemicalId","列管編號":"chemicalId",
+        "運作場所":"location","地點":"location","科別":"location",
+        "記錄月份":"yearMonth","年月":"yearMonth",
+        "上月結餘量":"prevBalance","上月結餘":"prevBalance",
+        "單位":"unit","本月使用量":"useAmount","使用量":"useAmount",
+        "結餘量":"balance","結餘":"balance",
+        "許可證字號":"permitNo","管制編號(U)":"controlNo",
+        "申報字號":"reference","備註":"note","注記":"note",
+      };
+      const imported = rows.map((row, i) => {
+        const obj = { ...EMPTY_FORM, id: Date.now() + i };
+        Object.entries(row).forEach(([k, v]) => {
+          const field = FIELD_MAP[k.trim()];
+          if (field) obj[field] = ["prevBalance","useAmount","balance"].includes(field) ? (parseFloat(v)||0) : String(v).trim();
+        });
+        return obj;
+      }).filter(r => r.chemicalId);
+      if (!imported.length) { showToast("找不到有效資料，請確認欄位名稱", "error"); return; }
+      const mode = window.confirm(`匯入 ${imported.length} 筆\n確定→取代現有 / 取消→附加`);
+      setDeclarations(prev => mode ? imported : [...prev, ...imported]);
+      showToast(`成功匯入 ${imported.length} 筆 🎉`);
+    } catch(err) { showToast("匯入失敗：" + err.message, "error"); }
+  };
+
+  const inputS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+    borderRadius:6, padding:"7px 10px", fontSize:12, width:"100%", boxSizing:"border-box" };
+  const labelS = { fontSize:11, color:"#64748b", marginBottom:4, display:"block" };
+
+  const saveNew = () => {
+    if (!newDecl.chemicalId || !newDecl.location || !newDecl.yearMonth) {
+      showToast("請填寫：管制編號、運作場所、記錄月份", "error"); return;
+    }
+    setDeclarations(prev => [...prev, {
+      ...newDecl, id: Date.now(),
+      prevBalance: parseFloat(newDecl.prevBalance)||0,
+      useAmount: parseFloat(newDecl.useAmount)||0,
+      balance: parseFloat(newDecl.balance)||0,
+    }]);
+    setNewDecl(EMPTY_FORM);
+    setShowAdd(false);
+    showToast("申報紀錄已新增");
+  };
+
+  const startEdit = (d) => { setEditingId(d.id); setEditData({...d}); };
+  const saveEdit = () => {
+    setDeclarations(prev => prev.map(x => x.id === editingId
+      ? { ...editData, prevBalance:parseFloat(editData.prevBalance)||0,
+          useAmount:parseFloat(editData.useAmount)||0, balance:parseFloat(editData.balance)||0 }
+      : x));
+    setEditingId(null);
+    showToast("已儲存");
+  };
+
+  return (
+    <div>
+      {/* ── 標題列 ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>📝 申報紀錄</h2>
+
+        {/* 月份篩選 */}
+        <select value={selectedYearMonth} onChange={e => setSelectedYearMonth(e.target.value)}
+          style={{ ...inputS, width:130, marginLeft:8 }}>
+          <option value="">全部月份</option>
+          {allMonths.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+
+        <a href="https://cems.moenv.gov.tw" target="_blank" rel="noreferrer"
+          style={{ marginLeft:"auto", fontSize:12, color:"#38bdf8", textDecoration:"none",
+            border:"1px solid #334155", padding:"6px 12px", borderRadius:6 }}>
+          🌐 毒化物管理系統 ↗
+        </a>
+
+        {isAdminMode && (<>
+          <label style={{ ...{background:"#16a34a",border:"none",color:"#fff",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600} }}>
+            📥 匯入 Excel
+            <input ref={xlsxRef} type="file" accept=".xlsx,.xls,.csv" style={{ display:"none" }} onChange={handleExcelImport} />
+          </label>
+          <button onClick={() => setShowImportGuide(v => !v)}
+            style={{ background:"transparent", border:"1px solid #334155", color:"#64748b", borderRadius:6, padding:"6px 10px", cursor:"pointer", fontSize:12 }}>
+            {showImportGuide ? "▲ 隱藏說明" : "❓ Excel 格式"}
+          </button>
+          <button onClick={() => setShowAdd(v => !v)}
+            style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+            ＋ 新增紀錄
+          </button>
+        </>)}
+      </div>
+
+      {/* ── Excel 格式說明 ── */}
+      {showImportGuide && (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:14, marginBottom:14, borderLeft:"3px solid #16a34a" }}>
+          <div style={{ fontSize:13, color:"#86efac", marginBottom:8 }}>📋 Excel 欄位名稱對照（第一列為標題）</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, fontSize:11 }}>
+            {[["管制編號","105-01（必填）"],["運作場所","合心樓5F 研究部（必填）"],["記錄月份","2025-05（必填）"],
+              ["上月結餘量","11.805（數字）"],["單位","公克/mL/L/kg"],["本月使用量","50（數字）"],
+              ["結餘量","450（數字）"],["許可證字號","花蓮縣毒核字第000006號"],
+              ["申報字號","申報字號-2025-001"],["備註","說明文字"]
+            ].map(([k,v]) => (
+              <div key={k} style={{ background:"#0f172a", borderRadius:6, padding:"6px 10px" }}>
+                <div style={{ color:"#38bdf8", fontWeight:700 }}>{k}</div>
+                <div style={{ color:"#64748b", marginTop:2 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 統計卡 ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"品項數",   value:stats.chemCount,  color:"#38bdf8",  icon:"⚗" },
+          { label:"記錄筆數", value:stats.total,       color:"#94a3b8",  icon:"📋" },
+        ].map(s => (
+          <div key={s.label} style={{ background:"#1e293b", borderRadius:10, padding:"14px 16px",
+            borderTop:`3px solid ${s.color}` }}>
+            <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.icon} {s.value}</div>
+            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 新增表單 ── */}
+      {showAdd && (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:18, marginBottom:16, border:"1px solid #334155" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>＋ 手動新增申報紀錄</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+            {[
+              ["管制編號 *", "chemicalId", "select"],
+              ["運作場所 *", "location", "text"],
+              ["記錄月份 *", "yearMonth", "month"],
+              ["上月結餘量", "prevBalance", "number"],
+              ["單位", "unit", "unitSelect"],
+              ["本月使用量", "useAmount", "number"],
+              ["結餘量（自行管理）", "balance", "number"],
+              ["許可證字號", "permitNo", "text"],
+              ["管制編號(U碼)", "controlNo", "text"],
+              ["申報字號", "reference", "text"],
+              ["備註", "note", "text"],
+            ].map(([label, field, type]) => (
+              <div key={field}>
+                <label style={labelS}>{label}</label>
+                {type === "select" ? (
+                  <select value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS}>
+                    <option value="">選擇化學品</option>
+                    {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
+                  </select>
+                ) : type === "unitSelect" ? (
+                  <select value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS}>
+                    {["公克","mL","L","kg","公斤","噸","公升"].map(u => <option key={u}>{u}</option>)}
+                  </select>
+) : type === "month" ? (
+                  <input type="month" value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})} style={inputS} />
+                ) : (
+                  <input type={type} value={newDecl[field]} onChange={e => setNewDecl({...newDecl, [field]:e.target.value})}
+                    placeholder={type === "number" ? "0" : ""} style={inputS} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:14 }}>
+            <button onClick={saveNew}
+              style={{ background:"#0ea5e9", border:"none", color:"#fff", borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>
+              儲存
+            </button>
+            <button onClick={() => { setShowAdd(false); setNewDecl(EMPTY_FORM); }}
+              style={{ background:"#334155", border:"none", color:"#94a3b8", borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 依化學品分組顯示 ── */}
+      {chemGroups.length === 0 ? (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:40, textAlign:"center", color:"#475569" }}>
+          尚無申報紀錄，請點上方「匯入 Excel」或「新增紀錄」
+        </div>
+      ) : chemGroups.map(({ chem, records }) => {
+        const isOpen = expandedChem === chem.id;
+        return (
+          <div key={chem.id} style={{ marginBottom:12, background:"#1e293b", borderRadius:12,
+            border:"1px solid #1e3a5f", overflow:"hidden" }}>
+            {/* 化學品標頭 */}
+            <div onClick={() => setExpandedChem(isOpen ? null : chem.id)}
+              style={{ display:"flex", alignItems:"center", padding:"14px 18px", cursor:"pointer",
+                background: isOpen ? "#172032" : "#1e293b",
+                transition:"background 0.15s" }}
+              onMouseEnter={e => { if(!isOpen) e.currentTarget.style.background = "#172032"; }}
+              onMouseLeave={e => { if(!isOpen) e.currentTarget.style.background = "#1e293b"; }}>
+
+              {/* 化學品名稱 */}
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:15, fontWeight:800, color:"#f1f5f9" }}>{chem.name}</span>
+                  <span style={{ fontSize:11, color:"#64748b" }}>{chem.enName}</span>
+                  <span style={{ fontSize:11, background:"#0f172a", padding:"1px 8px", borderRadius:20, color:"#38bdf8" }}>
+                    {chem.id}
+                  </span>
+                  <span style={{ fontSize:11, background:"#0f172a", padding:"1px 8px", borderRadius:20,
+                    color: chem.category === "毒性化學物質" ? "#f87171" : "#fb923c" }}>
+                    {chem.category}
+                  </span>
+                </div>
+                <div style={{ display:"flex", gap:16, marginTop:4, fontSize:11, color:"#64748b" }}>
+                  <span>📍 {records.length} 個運作場所</span>
+                  <span>📅 {[...new Set(records.map(r=>r.yearMonth))].join("、")}</span>
+                </div>
+              </div>
+
+              <span style={{ fontSize:14, color:"#475569" }}>{isOpen ? "▲" : "▼"}</span>
+            </div>
+
+            {/* 展開：各運作場所紀錄 */}
+            {isOpen && (
+              <div style={{ borderTop:"1px solid #1e3a5f" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:"#0f172a" }}>
+                      {["運作場所","記錄月份","上月結餘量","本月使用量","結餘量(自行管理)","許可證字號","備註", isAdminMode ? "操作" : null]
+                        .filter(Boolean)
+                        .map(h => (
+                          <th key={h} style={{ padding:"9px 12px", textAlign:"left", color:"#64748b",
+                            fontWeight:500, fontSize:11, whiteSpace:"nowrap" }}>{h}</th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map(d => {
+                      const isEditing = editingId === d.id;
+                      const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                        borderRadius:4, padding:"2px 6px", fontSize:11, width:"100%", boxSizing:"border-box" };
+                      return (
+                        <tr key={d.id} style={{ borderBottom:"1px solid #1e3a5f" }}
+                          onMouseEnter={e => { if(!isEditing) e.currentTarget.style.background="#0f172a40"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}>
+
+                          {/* 運作場所 */}
+                          <td style={{ padding:"10px 12px", color:"#e2e8f0", minWidth:140, fontWeight:600 }}>
+                            {isEditing
+                              ? <input value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS} />
+                              : <><div>{d.location}</div><div style={{fontSize:10,color:"#475569",marginTop:2}}>{d.reference||""}</div></>}
+                          </td>
+
+                          {/* 記錄月份 */}
+                          <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:90 }}>
+                            {isEditing
+                              ? <input type="month" value={editData.yearMonth||""} onChange={e => setEditData({...editData,yearMonth:e.target.value})} style={inS} />
+                              : d.yearMonth}
+                          </td>
+
+                          {/* 上月結餘量 */}
+                          <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:100 }}>
+                            {isEditing
+                              ? <div style={{display:"flex",gap:4}}>
+                                  <input type="number" value={editData.prevBalance||""} onChange={e => setEditData({...editData,prevBalance:e.target.value})} style={{...inS,width:70}} />
+                                  <select value={editData.unit||""} onChange={e => setEditData({...editData,unit:e.target.value})} style={inS}>
+                                    {["公克","mL","L","kg","公升","噸"].map(u=><option key={u}>{u}</option>)}
+                                  </select>
+                                </div>
+                              : `${d.prevBalance} ${d.unit}`}
+                          </td>
+
+                          {/* 本月使用量 */}
+                          <td style={{ padding:"10px 12px", color:"#fbbf24", minWidth:100 }}>
+                            {isEditing
+                              ? <input type="number" value={editData.useAmount||""} onChange={e => setEditData({...editData,useAmount:e.target.value})} style={inS} />
+                              : `${d.useAmount} ${d.unit}`}
+                          </td>
+
+                          {/* 結餘量 */}
+                          <td style={{ padding:"10px 12px", minWidth:110 }}>
+                            {isEditing
+                              ? <input type="number" value={editData.balance||""} onChange={e => setEditData({...editData,balance:e.target.value})} style={inS} />
+                              : <span style={{ color:"#a78bfa", fontWeight:700 }}>{d.balance} {d.unit}</span>}
+                          </td>
+
+                          {/* 許可證字號 */}
+                          <td style={{ padding:"10px 12px", color:"#64748b", minWidth:160, fontSize:10 }}>
+                            {isEditing
+                              ? <input value={editData.permitNo||""} onChange={e => setEditData({...editData,permitNo:e.target.value})} style={inS} />
+                              : <><div>{d.permitNo}</div>{d.controlNo && <div style={{marginTop:2,color:"#475569"}}>{d.controlNo}</div>}</>}
+                          </td>
+
+                          {/* 備註 */}
+                          <td style={{ padding:"10px 12px", color:"#64748b", minWidth:100 }}>
+                            {isEditing
+                              ? <input value={editData.note||""} onChange={e => setEditData({...editData,note:e.target.value})} style={inS} />
+                              : (d.note || "—")}
+                          </td>
+
+                          {/* 操作 */}
+                          {isAdminMode && (
+                            <td style={{ padding:"10px 12px", whiteSpace:"nowrap" }}>
+                              {isEditing ? <>
+                                <button onClick={saveEdit} style={{ fontSize:11, background:"#16a34a", border:"none",
+                                  color:"#fff", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✓ 儲存</button>
+                                <button onClick={() => setEditingId(null)} style={{ fontSize:11, background:"#334155",
+                                  border:"none", color:"#94a3b8", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>取消</button>
+                              </> : <>
+                                <button onClick={() => startEdit(d)} style={{ fontSize:11, background:"#1e3a5f",
+                                  border:"none", color:"#93c5fd", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✏️ 編輯</button>
+                                <button onClick={() => {
+                                  if (window.confirm("確定刪除？")) {
+                                    setDeclarations(prev => prev.filter(x => x.id !== d.id));
+                                    showToast("已刪除");
+                                  }
+                                }} style={{ fontSize:11, background:"#7f1d1d", border:"none",
+                                  color:"#fca5a5", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>刪除</button>
+                              </>}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Emergency Page ────────────────────────────────────────────────────────────
+function EmergencyPage({ chemicals }) {
+  const [selChem, setSelChem] = useState(chemicals[0]);
+
+  return (
+    <div>
+      <h2 style={{ margin:"0 0 8px", fontSize:20, color:"#f1f5f9" }}>🚨 緊急應變資訊</h2>
+      <p style={{ margin:"0 0 20px", fontSize:13, color:"#64748b" }}>化學品洩漏、火災或意外事故時的緊急應變指引</p>
+
+      {/* Emergency Contacts */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
+        {[
+          { icon:"🚒", name:"消防局", tel:"119", sub:"" },
+          { icon:"📞", name:"院內總機", tel:"總機按 9", sub:"", yellow:true },
+          { icon:"⚗️", name:"環管股", tel:"13391", sub:"" },
+
+          { icon:"🌿", name:"花蓮縣環保局", tel:"03-8233131", sub:"30分鐘內通報" },
+          { icon:"📢", name:"環保公害陳情", tel:"0800-066-666", sub:"環保公害陳情專線" },
+        ].map(c => (
+          <div key={c.name} style={{ background: c.yellow ? "#713f12" : "#7f1d1d", borderRadius:8, padding:"12px 14px",
+            border: c.yellow ? "1px solid #eab308" : "1px solid #ef4444" }}>
+            <div style={{ fontSize:20, marginBottom:4 }}>{c.icon}</div>
+            <div style={{ fontSize:12, color: c.yellow ? "#fef08a" : "#fca5a5" }}>{c.name}</div>
+            <div style={{ fontSize:18, fontWeight:700, color:"#fff", letterSpacing:1 }}>{c.tel}</div>
+            {c.sub && <div style={{ fontSize:10, color: c.yellow ? "#fef08a" : "#fca5a5", marginTop:2, opacity:0.8 }}>{c.sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"260px 1fr", gap:16 }}>
+        {/* Chemical Selector */}
+        <div style={{ background:"#1e293b", borderRadius:10, overflow:"auto", maxHeight:500 }}>
+          <div style={{ padding:"10px 12px", borderBottom:"1px solid #334155", fontSize:12, color:"#64748b" }}>選擇化學品查看應變資訊</div>
+          {chemicals.map(c => (
+            <div key={c.id} onClick={() => setSelChem(c)}
+              style={{ padding:"10px 12px", borderBottom:"1px solid #1e3a5f", cursor:"pointer",
+                background: selChem?.id === c.id ? "#0c4a6e" : "transparent",
+                borderLeft: selChem?.id === c.id ? "3px solid #ef4444" : "3px solid transparent"
+              }}>
+              <div style={{ fontSize:12, color:"#e2e8f0" }}>{c.name}</div>
+              <div style={{ fontSize:10, color:"#64748b" }}>{c.id}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Emergency Detail */}
+        {selChem && (
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ background:"#7f1d1d", borderRadius:10, padding:16, border:"1px solid #ef4444" }}>
+              <div style={{ fontSize:16, fontWeight:700, color:"#fff" }}>{selChem.name} 緊急應變</div>
+              <div style={{ fontSize:12, color:"#fca5a5", marginTop:2 }}>{selChem.enName} · {selChem.id} · CAS: {selChem.cas}</div>
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:"#f59e0b", marginBottom:10 }}>⚠️ 危害特性</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {selChem.hazard.map(h => (
+                    <div key={h} style={{ textAlign:"center", padding:"8px", background:"#0f172a", borderRadius:6 }}>
+                      <div style={{ fontSize:28 }}>{GHS_SYMBOLS[h]}</div>
+                      <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:"#38bdf8", marginBottom:10 }}>🛡️ 必要防護裝備</div>
+                {selChem.emergencyEquip.map((e, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
+                    <span style={{ color:"#22c55e", fontSize:14 }}>●</span>
+                    <span style={{ fontSize:12, color:"#e2e8f0" }}>{e}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background:"#0c4a6e", borderRadius:10, padding:14, border:"1px solid #0ea5e9" }}>
+
+              </div>
+
+              <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:"#a78bfa", marginBottom:10 }}>📍 存放地點</div>
+                {selChem.locations.map((l, i) => (
+                  <div key={i} style={{ padding:"6px 0", borderBottom:"1px solid #1e3a5f", fontSize:12, color:"#e2e8f0" }}>
+                    🏢 {l.building} {l.floor} · {l.room}
+                  </div>
+                ))}
+                <div style={{ marginTop:8, fontSize:11, color:"#64748b" }}>
+                  UN：{selChem.un} · CAS：{selChem.cas}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background:"#0f172a", borderRadius:10, padding:14, border:"1px solid #334155" }}>
+              <div style={{ fontSize:12, fontWeight:600, color:"#f59e0b", marginBottom:8 }}>📋 緊急應變步驟</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+                {["1. 人員疏散、確保安全", "2. 穿戴個人防護裝備", "3. 通報消防與環管股", "4. 依SDS進行緊急處置"].map((s, i) => (
+                  <div key={i} style={{ background:"#1e293b", borderRadius:6, padding:10, fontSize:11, color:"#e2e8f0", textAlign:"center" }}>
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Chemical Detail Modal ─────────────────────────────────────────────────────
+function ChemDetailModal({ chem, onClose, isAdminMode, chemicals, setChemicals, showToast }) {
+  const [editStock, setEditStock] = useState(false);
+  const [newStock, setNewStock] = useState(chem.stock);
+
+  return (
+    <Modal title={`${chem.name} 詳細資訊`} onClose={onClose} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+        {[
+          { label:"品項代碼", value:chem.id },
+          { label:"中文名稱", value:chem.name },
+          { label:"英文名稱", value:chem.enName },
+          { label:"化學品類別", value:chem.category },
+          { label:"CAS 編號", value:chem.cas },
+          { label:"UN 編號", value:chem.un },
+        ].map(f => (
+          <div key={f.label} style={{ background:"#0f172a", borderRadius:6, padding:"8px 12px" }}>
+            <div style={{ fontSize:10, color:"#64748b" }}>{f.label}</div>
+            <div style={{ fontSize:13, color:"#e2e8f0", marginTop:2 }}>{f.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", marginBottom:6 }}>
+          <span style={{ fontSize:12, color:"#64748b" }}>目前存量</span>
+          {isAdminMode && !editStock && (
+            <button onClick={() => setEditStock(true)} style={{ marginLeft:"auto", fontSize:10, background:"none", border:"none", color:"#38bdf8", cursor:"pointer" }}>✏️ 修改</button>
+          )}
+        </div>
+        {editStock ? (
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input type="number" value={newStock} onChange={e => setNewStock(parseFloat(e.target.value))}
+              style={{ ...inputStyle, width:80 }} />
+            <span style={{ fontSize:12, color:"#94a3b8" }}>{chem.unit}</span>
+            <button onClick={() => {
+              setChemicals(prev => prev.map(c => c.id === chem.id ? {...c, stock:newStock} : c));
+              setEditStock(false);
+              showToast("存量已更新");
+            }} style={btnStyle("#22c55e")}>儲存</button>
+            <button onClick={() => setEditStock(false)} style={btnStyle("#334155")}>取消</button>
+          </div>
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:16, fontWeight:700, color: getStockColor(chem.stock, chem.maxStock) }}>
+              {chem.stock} {chem.unit}
+            </span>
+            <span style={{ fontSize:12, color:"#64748b" }}>/ 上限 {chem.maxStock} {chem.unit}</span>
+            <div style={{ flex:1, background:"#1e293b", borderRadius:4, height:8 }}>
+              <div style={{ height:"100%", background: getStockColor(chem.stock, chem.maxStock), borderRadius:4, width:`${Math.min((chem.stock / chem.maxStock) * 100, 100)}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom:12 }}>
+        <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>GHS 危害標示</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {chem.hazard.map(h => (
+            <div key={h} style={{ textAlign:"center", padding:"6px 10px", background:"#0f172a", borderRadius:6 }}>
+              <div style={{ fontSize:20 }}>{GHS_SYMBOLS[h]}</div>
+              <div style={{ fontSize:9, color:"#f59e0b", marginTop:2 }}>{h}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <div style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>🛡️ 防護裝備</div>
+          {chem.emergencyEquip.map(e => <div key={e} style={{ fontSize:11, color:"#e2e8f0", padding:"2px 0" }}>✓ {e}</div>)}
+        </div>
+        <div style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>📍 存放位置</div>
+          {chem.locations.map((l, i) => (
+            <div key={i} style={{ fontSize:11, color:"#e2e8f0", padding:"2px 0" }}>🏢 {l.building} {l.floor} · {l.room}</div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Add Chemical Modal ────────────────────────────────────────────────────────
+function AddChemModal({ onClose, onSave }) {
+  const [form, setForm] = useState({
+    id:"", name:"", enName:"", category:"毒性化學物質",
+    cas:"", un:"", stock:0, maxStock:100, unit:"L",
+    hazard:[], locations:[{ building:"合心樓", floor:"5F", room:"" }],
+    emergencyEquip:[], declared:false,
+    sds:{ supplier:"", updated:"", url:"#" }
+  });
+
+  const update = (key, val) => setForm(f => ({...f, [key]:val}));
+
+  return (
+    <Modal title="新增化學品" onClose={onClose} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div><label style={labelStyle}>品項代碼 *</label><input value={form.id} onChange={e=>update("id",e.target.value)} style={inputStyle} placeholder="e.g. 050-01" /></div>
+        <div><label style={labelStyle}>中文名稱 *</label><input value={form.name} onChange={e=>update("name",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>英文名稱</label><input value={form.enName} onChange={e=>update("enName",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>類別</label>
+          <select value={form.category} onChange={e=>update("category",e.target.value)} style={inputStyle}>
+            <option>毒性化學物質</option><option>關注化學物質</option>
+          </select>
+        </div>
+        <div><label style={labelStyle}>CAS 編號</label><input value={form.cas} onChange={e=>update("cas",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>UN 編號</label><input value={form.un} onChange={e=>update("un",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>目前存量</label><input type="number" value={form.stock} onChange={e=>update("stock",parseFloat(e.target.value)||0)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>最大存量</label><input type="number" value={form.maxStock} onChange={e=>update("maxStock",parseFloat(e.target.value)||0)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>單位</label>
+          <select value={form.unit} onChange={e=>update("unit",e.target.value)} style={inputStyle}>
+            {["L","kg","g","mL","噸","桶"].map(u=><option key={u}>{u}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ marginBottom:10 }}>
+        <label style={labelStyle}>存放地點</label>
+        {form.locations.map((loc, i) => (
+          <div key={i} style={{ display:"flex", gap:6, marginBottom:6 }}>
+            <select value={loc.building} onChange={e=>{const l=[...form.locations];l[i].building=e.target.value;update("locations",l);}} style={{...inputStyle,flex:1}}>
+              {BUILDINGS.map(b=><option key={b}>{b}</option>)}
+            </select>
+            <input value={loc.floor} onChange={e=>{const l=[...form.locations];l[i].floor=e.target.value;update("locations",l);}} placeholder="樓層" style={{...inputStyle,width:60}} />
+            <input value={loc.room} onChange={e=>{const l=[...form.locations];l[i].room=e.target.value;update("locations",l);}} placeholder="部門/房間" style={{...inputStyle,flex:2}} />
+          </div>
+        ))}
+        <button onClick={() => update("locations",[...form.locations,{building:"合心樓",floor:"",room:""}])}
+          style={{ fontSize:11, background:"none", border:"1px dashed #334155", color:"#64748b", borderRadius:4, padding:"3px 8px", cursor:"pointer" }}>
+          ＋ 新增地點
+        </button>
+      </div>
+
+      <div style={{ marginBottom:10 }}>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div><label style={labelStyle}>SDS 供應商</label><input value={form.sds.supplier} onChange={e=>update("sds",{...form.sds,supplier:e.target.value})} style={inputStyle} /></div>
+        <div><label style={labelStyle}>SDS 更新日期</label><input type="date" value={form.sds.updated} onChange={e=>update("sds",{...form.sds,updated:e.target.value})} style={inputStyle} /></div>
+        <div><label style={labelStyle}>SDS URL</label><input value={form.sds.url} onChange={e=>update("sds",{...form.sds,url:e.target.value})} style={inputStyle} placeholder="https://..." /></div>
+      </div>
+
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => {
+          if (!form.id || !form.name) { alert("請填寫品項代碼和名稱"); return; }
+          onSave({ ...form, declarationDate:"", reportAmount:0 });
+        }} style={btnStyle("#0ea5e9")}>新增</button>
+        <button onClick={onClose} style={btnStyle("#334155")}>取消</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Edit Chemical Modal ───────────────────────────────────────────────────────
+function EditChemModal({ chem, onClose, onSave }) {
+  const [form, setForm] = useState({ ...chem });
+  const update = (key, val) => setForm(f => ({...f, [key]:val}));
+
+  return (
+    <Modal title={`編輯：${chem.name}`} onClose={onClose} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+        <div><label style={labelStyle}>中文名稱</label><input value={form.name} onChange={e=>update("name",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>英文名稱</label><input value={form.enName} onChange={e=>update("enName",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>類別</label>
+          <select value={form.category} onChange={e=>update("category",e.target.value)} style={inputStyle}>
+            <option>毒性化學物質</option><option>關注化學物質</option>
+          </select>
+        </div>
+        <div><label style={labelStyle}>目前存量</label><input type="number" value={form.stock} onChange={e=>update("stock",parseFloat(e.target.value)||0)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>最大存量</label><input type="number" value={form.maxStock} onChange={e=>update("maxStock",parseFloat(e.target.value)||0)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>單位</label>
+          <select value={form.unit} onChange={e=>update("unit",e.target.value)} style={inputStyle}>
+            {["L","kg","g","mL","噸","桶"].map(u=><option key={u}>{u}</option>)}
+          </select>
+        </div>
+        <div><label style={labelStyle}>CAS 編號</label><input value={form.cas} onChange={e=>update("cas",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>UN 編號</label><input value={form.un} onChange={e=>update("un",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>SDS 供應商</label><input value={form.sds.supplier} onChange={e=>update("sds",{...form.sds,supplier:e.target.value})} style={inputStyle} /></div>
+      </div>
+      <div style={{ marginBottom:10 }}>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => onSave(form)} style={btnStyle("#0ea5e9")}>儲存變更</button>
+        <button onClick={onClose} style={btnStyle("#334155")}>取消</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Training Records Page ────────────────────────────────────────────────────
+const TRAINING_TYPES = ["演練","教育訓練","宣導","複習測驗"];
+const INITIAL_TRAINING_FORM = {
+  date:"", type:"演練", title:"", location:"",
+  duration:"", instructor:"", result:"通過", note:""
+};
+
+function TrainingPage({ records, setRecords, isAdminMode, showToast }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [form, setForm] = useState(INITIAL_TRAINING_FORM);
+  const [filterType, setFilterType] = useState("");
+
+  const filtered = filterType ? records.filter(r => r.type === filterType) : records;
+
+  const inputS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+    borderRadius:6, padding:"7px 10px", fontSize:12, width:"100%", boxSizing:"border-box" };
+  const labelS = { fontSize:11, color:"#64748b", marginBottom:4, display:"block" };
+
+  const typeColor = (t) => ({
+    "演練":     { bg:"#7c3aed22", border:"#7c3aed", color:"#c4b5fd" },
+    "教育訓練": { bg:"#1d4ed822", border:"#3b82f6", color:"#93c5fd" },
+    "宣導":     { bg:"#0369a122", border:"#0ea5e9", color:"#7dd3fc" },
+    "複習測驗": { bg:"#15803d22", border:"#22c55e", color:"#86efac" },
+  }[t] || { bg:"#33415522", border:"#475569", color:"#94a3b8" });
+
+  const saveNew = () => {
+    if (!form.date || !form.title || !form.location) { showToast("請填寫日期、標題、地點", "error"); return; }
+    setRecords(prev => [...prev, { ...form, id: Date.now(),
+      duration: parseInt(form.duration)||0 }]);
+    setForm(INITIAL_TRAINING_FORM);
+    setShowAdd(false);
+    showToast("紀錄已新增");
+  };
+
+  const startEdit = (r) => { setEditingId(r.id); setEditData({...r}); };
+  const saveEdit = () => {
+    setRecords(prev => prev.map(r => r.id === editingId
+      ? { ...editData, duration: parseInt(editData.duration)||0 }
+      : r));
+    setEditingId(null);
+    showToast("已儲存");
+  };
+
+  const stats = {
+    total: records.length,
+    drills: records.filter(r => r.type === "演練").length,
+    training: records.filter(r => r.type === "教育訓練").length,
+
+  };
+
+  return (
+    <div>
+      {/* Title */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>📚 演練 / 教育訓練紀錄</h2>
+        {/* Type filter */}
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          style={{ ...inputS, width:120, marginLeft:8 }}>
+          <option value="">全部類型</option>
+          {TRAINING_TYPES.map(t => <option key={t}>{t}</option>)}
+        </select>
+        {isAdminMode && (
+          <button onClick={() => setShowAdd(v => !v)}
+            style={{ marginLeft:"auto", background:"#0ea5e9", border:"none", color:"#fff",
+              borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+            ＋ 新增紀錄
+          </button>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"總紀錄數", value:stats.total,    color:"#38bdf8",  icon:"📋" },
+          { label:"演練次數", value:stats.drills,   color:"#c4b5fd",  icon:"🚨" },
+          { label:"教育訓練", value:stats.training, color:"#93c5fd",  icon:"📖" },
+
+        ].map(s => (
+          <div key={s.label} style={{ background:"#1e293b", borderRadius:10, padding:"14px 16px",
+            borderTop:`3px solid ${s.color}` }}>
+            <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.icon} {s.value}</div>
+            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add Form */}
+      {showAdd && (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:18, marginBottom:16, border:"1px solid #334155" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>＋ 新增演練/訓練紀錄</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+            {[
+              ["日期 *", "date", "date"],
+              ["類型", "type", "typeSelect"],
+              ["標題 *", "title", "text"],
+              ["地點 *", "location", "text"],
+              ["時數（分鐘）", "duration", "number"],
+              ["主辦/講師", "instructor", "text"],
+              ["結果", "result", "resultSelect"],
+              ["備註", "note", "text"],
+            ].map(([label, field, type]) => (
+              <div key={field}>
+                <label style={labelS}>{label}</label>
+                {type === "typeSelect" ? (
+                  <select value={form[field]} onChange={e => setForm({...form,[field]:e.target.value})} style={inputS}>
+                    {TRAINING_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                ) : type === "resultSelect" ? (
+                  <select value={form[field]} onChange={e => setForm({...form,[field]:e.target.value})} style={inputS}>
+                    {["通過","待改善","未通過","--"].map(r => <option key={r}>{r}</option>)}
+                  </select>
+                ) : (
+                  <input type={type} value={form[field]} onChange={e => setForm({...form,[field]:e.target.value})} style={inputS} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:14 }}>
+            <button onClick={saveNew} style={{ background:"#0ea5e9", border:"none", color:"#fff",
+              borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>儲存</button>
+            <button onClick={() => { setShowAdd(false); setForm(INITIAL_TRAINING_FORM); }}
+              style={{ background:"#334155", border:"none", color:"#94a3b8",
+                borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>取消</button>
+          </div>
+        </div>
+      )}
+
+      {/* Records Table */}
+      <div style={{ background:"#1e293b", borderRadius:10, overflow:"auto" }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding:40, textAlign:"center", color:"#475569" }}>尚無紀錄</div>
+        ) : (
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <thead>
+              <tr style={{ background:"#0f172a" }}>
+                {["日期","類型","標題","地點","時數(分)","主辦/講師","結果","備註", isAdminMode ? "操作" : null]
+                  .filter(Boolean).map(h => (
+                    <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:"#64748b",
+                      fontWeight:500, fontSize:11, whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.sort((a,b) => b.date.localeCompare(a.date)).map(r => {
+                const isEditing = editingId === r.id;
+                const tc = typeColor(r.type);
+                const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                  borderRadius:4, padding:"2px 6px", fontSize:11, width:"100%", boxSizing:"border-box" };
+                return (
+                  <tr key={r.id} style={{ borderBottom:"1px solid #1e3a5f" }}
+                    onMouseEnter={e => { if(!isEditing) e.currentTarget.style.background="#0f172a40"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="transparent"; }}>
+
+                    <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:95, whiteSpace:"nowrap" }}>
+                      {isEditing ? <input type="date" value={editData.date||""} onChange={e => setEditData({...editData,date:e.target.value})} style={inS}/> : r.date}
+                    </td>
+                    <td style={{ padding:"10px 12px", minWidth:80 }}>
+                      {isEditing
+                        ? <select value={editData.type||""} onChange={e => setEditData({...editData,type:e.target.value})} style={inS}>
+                            {TRAINING_TYPES.map(t=><option key={t}>{t}</option>)}
+                          </select>
+                        : <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20,
+                            background:tc.bg, border:`1px solid ${tc.border}`, color:tc.color }}>
+                            {r.type}
+                          </span>}
+                    </td>
+                    <td style={{ padding:"10px 12px", color:"#e2e8f0", fontWeight:600, minWidth:160 }}>
+                      {isEditing ? <input value={editData.title||""} onChange={e => setEditData({...editData,title:e.target.value})} style={inS}/> : r.title}
+                    </td>
+                    <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:140 }}>
+                      {isEditing ? <input value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS}/> : r.location}
+                    </td>
+                    <td style={{ padding:"10px 12px", color:"#94a3b8", minWidth:65, textAlign:"right" }}>
+                      {isEditing ? <input type="number" value={editData.duration||""} onChange={e => setEditData({...editData,duration:e.target.value})} style={inS}/> : r.duration}
+                    </td>
+                    <td style={{ padding:"10px 12px", color:"#64748b", minWidth:100 }}>
+                      {isEditing ? <input value={editData.instructor||""} onChange={e => setEditData({...editData,instructor:e.target.value})} style={inS}/> : (r.instructor||"—")}
+                    </td>
+                    <td style={{ padding:"10px 12px", minWidth:70 }}>
+                      {isEditing
+                        ? <select value={editData.result||""} onChange={e => setEditData({...editData,result:e.target.value})} style={inS}>
+                            {["通過","待改善","未通過","--"].map(v=><option key={v}>{v}</option>)}
+                          </select>
+                        : <span style={{ fontSize:11, color: r.result==="通過" ? "#86efac" : r.result==="未通過" ? "#fca5a5" : "#fcd34d" }}>
+                            {r.result}
+                          </span>}
+                    </td>
+                    <td style={{ padding:"10px 12px", color:"#64748b", minWidth:120 }}>
+                      {isEditing ? <input value={editData.note||""} onChange={e => setEditData({...editData,note:e.target.value})} style={inS}/> : (r.note||"—")}
+                    </td>
+                    {isAdminMode && (
+                      <td style={{ padding:"10px 12px", whiteSpace:"nowrap" }}>
+                        {isEditing ? <>
+                          <button onClick={saveEdit} style={{ fontSize:11, background:"#16a34a", border:"none",
+                            color:"#fff", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✓ 儲存</button>
+                          <button onClick={() => setEditingId(null)} style={{ fontSize:11, background:"#334155",
+                            border:"none", color:"#94a3b8", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>取消</button>
+                        </> : <>
+                          <button onClick={() => startEdit(r)} style={{ fontSize:11, background:"#1e3a5f",
+                            border:"none", color:"#93c5fd", padding:"3px 8px", borderRadius:4, cursor:"pointer", marginRight:4 }}>✏️ 編輯</button>
+                          <button onClick={() => {
+                            if (window.confirm("確定刪除？")) { setRecords(prev => prev.filter(x => x.id !== r.id)); showToast("已刪除"); }
+                          }} style={{ fontSize:11, background:"#7f1d1d", border:"none",
+                            color:"#fca5a5", padding:"3px 8px", borderRadius:4, cursor:"pointer" }}>刪除</button>
+                        </>}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared Modal ──────────────────────────────────────────────────────────────
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div style={{
+      position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex",
+      alignItems:"center", justifyContent:"center", zIndex:1000, animation:"fadeIn 0.2s ease"
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background:"#1e293b", borderRadius:12, padding:20, width: wide ? 680 : 400,
+        maxHeight:"85vh", overflow:"auto", border:"1px solid #334155",
+        boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
+      }}>
+        <div style={{ display:"flex", alignItems:"center", marginBottom:16 }}>
+          <h3 style={{ margin:0, fontSize:16, color:"#f1f5f9" }}>{title}</h3>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:"#64748b", cursor:"pointer", fontSize:18 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Style Helpers ─────────────────────────────────────────────────────────────
+const btnStyle = (bg) => ({
+  background: bg, border:"none", color:"#fff", padding:"8px 16px",
+  borderRadius:6, cursor:"pointer", fontSize:13, fontWeight:500
+});
+const labelStyle = { fontSize:11, color:"#64748b", display:"block", marginBottom:4 };
+const inputStyle = {
+  width:"100%", padding:"7px 10px", background:"#0f172a",
+  border:"1px solid #334155", borderRadius:6, color:"#fff", fontSize:13
+};
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
