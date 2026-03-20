@@ -4,10 +4,37 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>花蓮慈濟醫院 毒性及關注化學物質管理系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <!-- React -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <script>(function(){var _w=console.warn;console.warn=function(m){if(typeof m==='string'&&m.indexOf('Babel')!==-1)return;_w.apply(console,arguments);};})()</script>
+  <!-- Firebase -->
+  <script src="https://unpkg.com/firebase@9.23.0/compat/app/dist/index.js"></script>
+  <script src="https://unpkg.com/firebase@9.23.0/compat/database/dist/index.js"></script>
+  <script>
+    (function() {
+      var _w = console.warn;
+      console.warn = function(m) { if (typeof m === 'string' && m.indexOf('Babel') !== -1) return; _w.apply(console, arguments); };
+    })();
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDjOHhq22OxQrKZEXtE5eQSsZ1B2Zd1Qug",
+      authDomain: "hualien-chem.firebaseapp.com",
+      databaseURL: "https://hualien-chem-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "hualien-chem",
+      storageBucket: "hualien-chem.firebasestorage.app",
+      messagingSenderId: "230824276429",
+      appId: "1:230824276429:web:dfb352b82615446d6b9484"
+    };
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window.firebaseDb = firebase.database();
+      console.log('Firebase connected ✓');
+    } catch(e) {
+      console.warn('Firebase init failed:', e);
+      window.firebaseDb = null;
+    }
+  </script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{background:#0f172a;color:#e2e8f0;font-family:'Noto Sans TC',sans-serif;}
@@ -242,22 +269,74 @@ const getCategoryColor = (cat) =>
   cat === "毒性化學物質" ? "#ef4444" : "#f59e0b";
 
 // ─── Main App ──────────────────────────────────────────────────────────────────
+
+// ─── Firebase Sync Hook ────────────────────────────────────────────────────────
+function useSyncedState(fbPath, init, cleanFn) {
+  const [state, setState] = useState(init);
+
+  React.useEffect(() => {
+    const db = window.firebaseDb;
+    if (!db) return;
+    const ref = db.ref(fbPath);
+    ref.on('value', snap => {
+      const raw = snap.val();
+      if (raw == null) return;
+      try {
+        setState(Array.isArray(init) ? Object.values(raw) : raw);
+      } catch(e) { console.warn('FB parse error', e); }
+    });
+    return () => ref.off();
+  }, [fbPath]);
+
+  const set = (updater) => {
+    setState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const db = window.firebaseDb;
+      if (db && next != null) {
+        let toSave = cleanFn ? cleanFn(next) : next;
+        if (Array.isArray(toSave)) {
+          const obj = {};
+          toSave.forEach((item, i) => {
+            const key = String(item.id != null ? item.id : i).replace(/[.$#[\]/]/g, '_');
+            obj[key] = item;
+          });
+          toSave = obj;
+        }
+        db.ref(fbPath).set(toSave).catch(e => console.warn('Firebase write error:', e));
+      }
+      return next;
+    });
+  };
+
+  return [state, set];
+}
+
 function App() {
   const [page, setPage] = useState("dashboard");
-  const [chemicals, setChemicals] = useState(INITIAL_CHEMICALS);
-  const [declarations, setDeclarations] = useState(INITIAL_DECLARATIONS);
-  const [inspections, setInspections] = useState([]);
-  const [licenses, setLicenses] = useState([
+  // ── Firebase synced states ─────────────────────────────────────────
+  // Binary data (photos, SDS files, floor plans) stored locally only
+  const stripChems = (arr) => arr.map(c => ({
+    ...c, sds:{ supplier:c.sds?.supplier||'', updated:c.sds?.updated||'', url:c.sds?.url||'' }
+  }));
+  const stripDecls = (arr) => arr.map(d => ({ ...d, fileData:'', fileName:d.fileName||'' }));
+  const stripInsps = (arr) => arr.map(i => ({ ...i, photos:[], photoNames:[], signature:'' }));
+
+  const [chemicals, setChemicals] = useSyncedState('chemicals', INITIAL_CHEMICALS, stripChems);
+  const [declarations, setDeclarations] = useSyncedState('declarations', INITIAL_DECLARATIONS, stripDecls);
+  const [inspections, setInspections] = useSyncedState('inspections', [], stripInsps);
+  const [licenses, setLicenses] = useSyncedState('licenses', [
     { id:1, name:"花蓮縣毒核字第000006號", type:"毒性化學物質操作許可", chemicals:"乙腈、三氯甲烷等", expiryDate:"2026-12-31", note:"" },
     { id:2, name:"花蓮縣毒核字第000025號", type:"毒性化學物質操作許可", chemicals:"甲醯胺等", expiryDate:"2026-06-30", note:"" },
     { id:3, name:"花蓮縣關核字第000004號", type:"關注化學物質操作許可", chemicals:"一氧化二氮", expiryDate:"2026-09-30", note:"" },
   ]);
-  const [trainingRecords, setTrainingRecords] = useState([
+  const [trainingRecords, setTrainingRecords] = useSyncedState('trainingRecords', [
     { id:1, date:"2025-03-15", type:"演練", title:"毒化物洩漏緊急應變演練", location:"合心樓5F 研究部",
       duration:60, instructor:"王環安", result:"通過", note:"參照環保署演練指引" },
     { id:2, date:"2025-01-20", type:"教育訓練", title:"毒性化學物質操作安全訓練", location:"大愛樓2F 會議室",
       duration:120, instructor:"李化安", result:"通過", note:"新進人員必修" },
   ]);
+  const [mapMarkers, setMapMarkers] = useSyncedState('mapMarkers', {});
+  const [floorVideos, setFloorVideos] = useSyncedState('floorVideos', {});
   const [selectedChem, setSelectedChem] = useState(null);
   const [editingChem, setEditingChem] = useState(null);
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -272,11 +351,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState(null);
   // floorPlans: { "合心樓_4F": { url: "data:image/...", name: "4F.png" }, ... }
+  // floorPlans & panoramas kept local (contain large base64 images)
   const [floorPlans, setFloorPlans] = useState({});
-  const [floorVideos, setFloorVideos] = useState({});   // { "大愛樓_5F": "https://youtube.com/embed/..." }
-  const [floorPanoramas, setFloorPanoramas] = useState({}); // { "大愛樓_5F": [{ id, label, url }] }
-  // mapMarkers: { "合心樓_4F": [ { id, x, y, chemId, label }, ... ] }
-  const [mapMarkers, setMapMarkers] = useState({});
+  const [floorPanoramas, setFloorPanoramas] = useState({});
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
