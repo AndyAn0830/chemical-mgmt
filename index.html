@@ -1388,6 +1388,15 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
 // ─── SDS Page ─────────────────────────────────────────────────────────────────
 function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
   const [selected, setSelected] = useState(null);
+  const [newHazard, setNewHazard] = useState("");
+  const [newEquip, setNewEquip] = useState("");
+  const [newLocation, setNewLocation] = useState({ building:"合心樓", floor:"", room:"" });
+  const [showAddLoc, setShowAddLoc] = useState(false);
+
+  const updateSelected = (updater) => {
+    setChemicals(prev => prev.map(c => c.id === selected.id ? updater(c) : c));
+    setSelected(s => updater(s));
+  };
 
   return (
     <div>
@@ -1427,15 +1436,33 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                   <div style={{ fontSize:13, color:"#94a3b8" }}>{selected.enName}</div>
                 </div>
                 {isAdminMode && (
-                  <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
-                    <button style={btnStyle("#0ea5e9")} onClick={() => {
-                      const url = prompt("輸入 SDS 文件 URL:", selected.sds.url);
-                      if (url !== null) {
-                        setChemicals(prev => prev.map(c => c.id === selected.id ? {...c, sds:{...c.sds, url}} : c));
-                        setSelected(s => ({...s, sds:{...s.sds, url}}));
-                        showToast("SDS URL 已更新");
-                      }
-                    }}>🔗 更新連結</button>
+                  <div style={{ marginLeft:"auto", display:"flex", gap:6, alignItems:"center" }}>
+                    <input id="sds-upload-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx"
+                      style={{display:"none"}}
+                      onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          const update = { ...selected.sds, fileName:file.name, fileData:ev.target.result };
+                          setChemicals(prev => prev.map(c => c.id === selected.id ? {...c, sds:update} : c));
+                          setSelected(s => ({...s, sds:update}));
+                          showToast("SDS 檔案已上傳");
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }} />
+                    <label htmlFor="sds-upload-input"
+                      style={{...btnStyle("#0ea5e9"), cursor:"pointer", padding:"8px 16px", fontSize:13, fontWeight:500}}>
+                      📁 上傳 SDS 檔案
+                    </label>
+                    {selected.sds?.fileData && (
+                      <button style={btnStyle("#7f1d1d")} onClick={() => {
+                        const update = {...selected.sds, fileName:"", fileData:""};
+                        setChemicals(prev => prev.map(c => c.id === selected.id ? {...c, sds:update} : c));
+                        setSelected(s => ({...s, sds:update}));
+                        showToast("SDS 檔案已移除");
+                      }}>🗑️ 移除</button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1458,41 +1485,123 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <SDSSection title="⚠️ GHS 危害標示" color="#f59e0b">
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
                     {selected.hazard.map(h => (
-                      <div key={h} style={{ textAlign:"center", padding:"8px 12px", background:"#1e293b", borderRadius:6 }}>
+                      <div key={h} style={{ textAlign:"center", padding:"8px 12px", background:"#1e293b", borderRadius:6, position:"relative" }}>
                         <div style={{ fontSize:24 }}>{GHS_SYMBOLS[h]}</div>
                         <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
+                        {isAdminMode && (
+                          <button onClick={() => updateSelected(c => ({...c, hazard:c.hazard.filter(x=>x!==h)}))}
+                            style={{ position:"absolute", top:-4, right:-4, background:"#ef4444", border:"none",
+                              color:"#fff", borderRadius:"50%", width:16, height:16, fontSize:9,
+                              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                        )}
                       </div>
                     ))}
                   </div>
+                  {isAdminMode && (
+                    <div style={{ display:"flex", gap:6 }}>
+                      <select value={newHazard} onChange={e => setNewHazard(e.target.value)}
+                        style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                          borderRadius:6, padding:"4px 8px", fontSize:11 }}>
+                        <option value="">＋ 新增危害標示</option>
+                        {Object.keys(GHS_SYMBOLS).filter(h => !selected.hazard.includes(h)).map(h => (
+                          <option key={h} value={h}>{GHS_SYMBOLS[h]} {h}</option>
+                        ))}
+                      </select>
+                      <button onClick={() => { if (!newHazard) return; updateSelected(c => ({...c, hazard:[...c.hazard, newHazard]})); setNewHazard(""); }}
+                        style={{ background:"#d97706", border:"none", color:"#fff", borderRadius:6,
+                          padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
+                    </div>
+                  )}
                 </SDSSection>
 
                 <SDSSection title="🛡️ 防護裝備" color="#38bdf8">
-                  {selected.emergencyEquip.map(e => (
-                    <div key={e} style={{ fontSize:12, color:"#e2e8f0", padding:"4px 0", borderBottom:"1px solid #1e3a5f" }}>
-                      ✓ {e}
+                  {selected.emergencyEquip.map((e, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
+                      padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
+                      <span style={{ color:"#22c55e", marginRight:6 }}>✓</span>
+                      <span style={{ flex:1 }}>{e}</span>
+                      {isAdminMode && (
+                        <button onClick={() => updateSelected(c => ({...c, emergencyEquip:c.emergencyEquip.filter((_,j)=>j!==i)}))}
+                          style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
+                            fontSize:12, padding:"0 4px" }}>✕</button>
+                      )}
                     </div>
                   ))}
+                  {isAdminMode && (
+                    <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                      <input value={newEquip} onChange={e => setNewEquip(e.target.value)}
+                        placeholder="新增防護裝備..." onKeyDown={e => { if(e.key==="Enter" && newEquip.trim()) { updateSelected(c=>({...c, emergencyEquip:[...c.emergencyEquip, newEquip.trim()]})); setNewEquip(""); }}}
+                        style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                          borderRadius:6, padding:"4px 8px", fontSize:11 }} />
+                      <button onClick={() => { if (!newEquip.trim()) return; updateSelected(c=>({...c, emergencyEquip:[...c.emergencyEquip, newEquip.trim()]})); setNewEquip(""); }}
+                        style={{ background:"#0369a1", border:"none", color:"#fff", borderRadius:6,
+                          padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
+                    </div>
+                  )}
                 </SDSSection>
 
 
 
                 <SDSSection title="📍 存放位置" color="#a78bfa">
                   {selected.locations.map((l, i) => (
-                    <div key={i} style={{ fontSize:12, color:"#e2e8f0", padding:"4px 0", borderBottom:"1px solid #1e3a5f" }}>
-                      🏢 {l.building} {l.floor} · {l.room}
+                    <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
+                      padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
+                      <span style={{ flex:1 }}>🏢 {l.building} {l.floor} · {l.room}</span>
+                      {isAdminMode && (
+                        <button onClick={() => updateSelected(c => ({...c, locations:c.locations.filter((_,j)=>j!==i)}))}
+                          style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
+                            fontSize:12, padding:"0 4px" }}>✕</button>
+                      )}
                     </div>
                   ))}
+                  {isAdminMode && (
+                    showAddLoc ? (
+                      <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <select value={newLocation.building} onChange={e => setNewLocation(l => ({...l, building:e.target.value}))}
+                            style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+                              borderRadius:6, padding:"4px 8px", fontSize:11 }}>
+                            {BUILDINGS.map(b => <option key={b}>{b}</option>)}
+                          </select>
+                          <input value={newLocation.floor} onChange={e => setNewLocation(l => ({...l, floor:e.target.value}))}
+                            placeholder="樓層" style={{ width:60, background:"#0f172a", border:"1px solid #334155",
+                              color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
+                          <input value={newLocation.room} onChange={e => setNewLocation(l => ({...l, room:e.target.value}))}
+                            placeholder="部門/房間" style={{ flex:2, background:"#0f172a", border:"1px solid #334155",
+                              color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
+                        </div>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <button onClick={() => { updateSelected(c => ({...c, locations:[...c.locations, {...newLocation}]})); setNewLocation({building:"合心樓",floor:"",room:""}); setShowAddLoc(false); }}
+                            style={{ flex:1, background:"#7c3aed", border:"none", color:"#fff", borderRadius:6,
+                              padding:"4px 0", cursor:"pointer", fontSize:11 }}>確認新增</button>
+                          <button onClick={() => setShowAddLoc(false)}
+                            style={{ flex:1, background:"#334155", border:"none", color:"#94a3b8", borderRadius:6,
+                              padding:"4px 0", cursor:"pointer", fontSize:11 }}>取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setShowAddLoc(true)}
+                        style={{ marginTop:8, width:"100%", background:"none", border:"1px dashed #7c3aed",
+                          color:"#a78bfa", borderRadius:6, padding:"5px 0", cursor:"pointer", fontSize:11 }}>
+                        ＋ 新增存放地點
+                      </button>
+                    )
+                  )}
                 </SDSSection>
               </div>
 
               <div style={{ marginTop:16, padding:12, background:"#0f172a", borderRadius:6, display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ fontSize:12, color:"#64748b" }}>📄 SDS 原始文件：</span>
-                <a href={selected.sds.url} target="_blank" rel="noreferrer"
-                  style={{ fontSize:12, color:"#38bdf8", textDecoration:"none" }}>
-                  查看/下載 SDS ↗
-                </a>
+                {selected.sds?.fileData ? (
+                  <a href={selected.sds.fileData} download={selected.sds.fileName || "SDS"}
+                    style={{ fontSize:12, color:"#22c55e", textDecoration:"none" }}>
+                    ✓ {selected.sds.fileName} 下載 ↓
+                  </a>
+                ) : (
+                  <span style={{ fontSize:12, color:"#475569" }}>尚未上傳 SDS 檔案</span>
+                )}
                 <span style={{ fontSize:11, color:"#475569", marginLeft:"auto" }}>
                   {selected.sds.supplier} · 更新於 {selected.sds.updated}
                 </span>
@@ -2154,10 +2263,17 @@ function AddChemModal({ onClose, onSave }) {
     cas:"", un:"", stock:0, maxStock:100, unit:"L",
     hazard:[], locations:[{ building:"合心樓", floor:"5F", room:"" }],
     emergencyEquip:[], declared:false,
-    sds:{ supplier:"", updated:"", url:"#" }
+    sds:{ supplier:"", updated:"", url:"", fileName:"", fileData:"" }
   });
 
   const update = (key, val) => setForm(f => ({...f, [key]:val}));
+  const sdsFileRef = React.useRef(null);
+  const handleSdsFile = (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => update("sds", {...form.sds, fileName:file.name, fileData:ev.target.result});
+    reader.readAsDataURL(file); e.target.value = "";
+  };
 
   return (
     <Modal title="新增化學品" onClose={onClose} wide>
@@ -2204,7 +2320,20 @@ function AddChemModal({ onClose, onSave }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
         <div><label style={labelStyle}>SDS 供應商</label><input value={form.sds.supplier} onChange={e=>update("sds",{...form.sds,supplier:e.target.value})} style={inputStyle} /></div>
         <div><label style={labelStyle}>SDS 更新日期</label><input type="date" value={form.sds.updated} onChange={e=>update("sds",{...form.sds,updated:e.target.value})} style={inputStyle} /></div>
-        <div><label style={labelStyle}>SDS URL</label><input value={form.sds.url} onChange={e=>update("sds",{...form.sds,url:e.target.value})} style={inputStyle} placeholder="https://..." /></div>
+        <div>
+          <label style={labelStyle}>SDS 檔案</label>
+          <input ref={sdsFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.docx" style={{display:"none"}} onChange={handleSdsFile} />
+          {form.sds.fileData ? (
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:"#22c55e"}}>✓ {form.sds.fileName}</span>
+              <button type="button" onClick={()=>update("sds",{...form.sds,fileName:"",fileData:""})}
+                style={{fontSize:10,background:"#7f1d1d",border:"none",color:"#fca5a5",borderRadius:4,padding:"2px 6px",cursor:"pointer"}}>✕</button>
+            </div>
+          ) : (
+            <button type="button" onClick={()=>sdsFileRef.current.click()}
+              style={{...inputStyle,cursor:"pointer",textAlign:"left",color:"#64748b"}}>📁 選擇 SDS 檔案</button>
+          )}
+        </div>
       </div>
 
       <div style={{ display:"flex", gap:8 }}>
