@@ -247,6 +247,11 @@ function App() {
   const [page, setPage] = useState("dashboard");
   const [chemicals, setChemicals] = useState(INITIAL_CHEMICALS);
   const [declarations, setDeclarations] = useState(INITIAL_DECLARATIONS);
+  const [licenses, setLicenses] = useState([
+    { id:1, name:"花蓮縣毒核字第000006號", type:"毒性化學物質操作許可", chemicals:"乙腈、三氯甲烷等", expiryDate:"2026-12-31", note:"" },
+    { id:2, name:"花蓮縣毒核字第000025號", type:"毒性化學物質操作許可", chemicals:"甲醯胺等", expiryDate:"2026-06-30", note:"" },
+    { id:3, name:"花蓮縣關核字第000004號", type:"關注化學物質操作許可", chemicals:"一氧化二氮", expiryDate:"2026-09-30", note:"" },
+  ]);
   const [trainingRecords, setTrainingRecords] = useState([
     { id:1, date:"2025-03-15", type:"演練", title:"毒化物洩漏緊急應變演練", location:"合心樓5F 研究部",
       duration:60, instructor:"王環安", result:"通過", note:"參照環保署演練指引" },
@@ -327,6 +332,7 @@ function App() {
           { id:"declarations", icon:"📝", label:"申報紀錄" },
           { id:"emergency", icon:"🚨", label:"緊急應變" },
           { id:"training", icon:"📚", label:"演練/訓練紀錄" },
+          { id:"licenses", icon:"📄", label:"證件到期提醒" },
         ].map(item => (
           <button key={item.id} onClick={() => setPage(item.id)}
             style={{
@@ -387,6 +393,7 @@ function App() {
           {page === "declarations" && <DeclarationsPage declarations={declarations} chemicals={chemicals} setDeclarations={setDeclarations} isAdminMode={isAdminMode} showToast={showToast} />}
           {page === "emergency" && <EmergencyPage chemicals={chemicals} />}
           {page === "training" && <TrainingPage records={trainingRecords} setRecords={setTrainingRecords} isAdminMode={isAdminMode} showToast={showToast} />}
+          {page === "licenses" && <LicensePage licenses={licenses} setLicenses={setLicenses} showToast={showToast} />}
         </div>
       </main>
 
@@ -1501,6 +1508,22 @@ function SDSSection({ title, color, children }) {
 }
 
 // ─── Declarations Page ────────────────────────────────────────────────────────
+const OPERATION_LOCATIONS = [
+  "大愛樓2F 檢驗科",
+  "大愛樓3F 生殖醫學中心",
+  "感恩樓B1F 核醫製藥科",
+  "感恩樓2F 心導管室",
+  "合心樓B1F 供應中心",
+  "合心樓5F 研究部",
+  "慈濟大學福田9樓",
+];
+
+const PERMIT_NUMBERS = [
+  "花蓮縣毒核字第000006號",
+  "花蓮縣毒核字第000025號",
+  "花蓮縣關核字第000004號",
+];
+
 function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMode, showToast }) {
   const [showAdd, setShowAdd] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
@@ -1646,7 +1669,16 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
             {/* 必填欄位 */}
             <div>
               <label style={labelS}>管制編號 *</label>
-              <select value={form.chemicalId} onChange={e => setForm({...form,chemicalId:e.target.value})} style={inputS}>
+              <select value={form.chemicalId} onChange={e => {
+                const cid = e.target.value;
+                const prev = form.location ? [...declarations]
+                  .filter(d => d.chemicalId === cid && d.location === form.location)
+                  .sort((a,b) => b.yearMonth.localeCompare(a.yearMonth))[0] : null;
+                setForm(f => ({...f, chemicalId:cid,
+                  prevBalance: prev ? prev.balance : f.prevBalance,
+                  unit: prev ? prev.unit : f.unit,
+                }));
+              }} style={inputS}>
                 <option value="">選擇化學品</option>
                 {chemicals.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
               </select>
@@ -1657,8 +1689,20 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
             </div>
             <div>
               <label style={labelS}>運作場所 *</label>
-              <input value={form.location} onChange={e => setForm({...form,location:e.target.value})}
-                placeholder="例：合心樓5F 研究部" style={inputS} />
+              <select value={form.location} onChange={e => {
+                const loc = e.target.value;
+                // Auto-fill previous balance from last record of same chem+location
+                const prev = [...declarations]
+                  .filter(d => d.chemicalId === form.chemicalId && d.location === loc)
+                  .sort((a,b) => b.yearMonth.localeCompare(a.yearMonth))[0];
+                setForm(f => ({...f, location:loc,
+                  prevBalance: prev ? prev.balance : f.prevBalance,
+                  unit: prev ? prev.unit : f.unit,
+                }));
+              }} style={inputS}>
+                <option value="">選擇運作場所</option>
+                {OPERATION_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
             </div>
 
             {/* 數量欄位 */}
@@ -1686,8 +1730,10 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
             {/* 其他欄位 */}
             <div>
               <label style={labelS}>許可證字號</label>
-              <input value={form.permitNo} onChange={e => setForm({...form,permitNo:e.target.value})}
-                placeholder="花蓮縣毒核字第000006號" style={inputS} />
+              <select value={form.permitNo} onChange={e => setForm({...form,permitNo:e.target.value})} style={inputS}>
+                <option value="">選擇許可證字號</option>
+                {PERMIT_NUMBERS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
             </div>
             <div>
               <label style={labelS}>管制編號(U碼)</label>
@@ -1782,7 +1828,10 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
                           </div>
                           <div>
                             <label style={labelS}>運作場所</label>
-                            <input value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS} />
+                            <select value={editData.location||""} onChange={e => setEditData({...editData,location:e.target.value})} style={inS}>
+                              <option value="">選擇運作場所</option>
+                              {OPERATION_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
                           </div>
                           <div>
                             <label style={labelS}>記錄月份</label>
@@ -1808,7 +1857,10 @@ function DeclarationsPage({ declarations, setDeclarations, chemicals, isAdminMod
                           </div>
                           <div>
                             <label style={labelS}>許可證字號</label>
-                            <input value={editData.permitNo||""} onChange={e => setEditData({...editData,permitNo:e.target.value})} style={inS} />
+                            <select value={editData.permitNo||""} onChange={e => setEditData({...editData,permitNo:e.target.value})} style={inS}>
+                              <option value="">選擇許可證字號</option>
+                              {PERMIT_NUMBERS.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
                           </div>
                           <div>
                             <label style={labelS}>備註</label>
@@ -2410,6 +2462,197 @@ function TrainingPage({ records, setRecords, isAdminMode, showToast }) {
             </tbody>
           </table>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── License Page ─────────────────────────────────────────────────────────────
+function LicensePage({ licenses, setLicenses, showToast }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const EMPTY = { name:"", type:"毒性化學物質操作許可", chemicals:"", expiryDate:"", note:"" };
+  const [form, setForm] = useState(EMPTY);
+
+  const inputS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+    borderRadius:6, padding:"7px 10px", fontSize:12, width:"100%", boxSizing:"border-box" };
+  const labelS = { fontSize:11, color:"#64748b", marginBottom:3, display:"block" };
+
+  const today = new Date();
+  const daysUntil = d => Math.ceil((new Date(d) - today) / 86400000);
+
+  const statusInfo = (d) => {
+    const days = daysUntil(d);
+    if (days < 0)   return { color:"#ef4444", bg:"#7f1d1d22", border:"#ef4444", label:"已到期",    icon:"🔴" };
+    if (days <= 30) return { color:"#f97316", bg:"#78350f22", border:"#f97316", label:`${days}天後到期`, icon:"🟠" };
+    if (days <= 90) return { color:"#eab308", bg:"#713f1222", border:"#eab308", label:`${days}天後到期`, icon:"🟡" };
+    return              { color:"#22c55e", bg:"#14532d22", border:"#22c55e", label:`${days}天後到期`, icon:"🟢" };
+  };
+
+  // Sort: expired first, then soonest
+  const sorted = [...licenses].sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+  const expired = licenses.filter(l => daysUntil(l.expiryDate) < 0).length;
+  const soon30  = licenses.filter(l => { const d=daysUntil(l.expiryDate); return d>=0&&d<=30; }).length;
+  const soon90  = licenses.filter(l => { const d=daysUntil(l.expiryDate); return d>30&&d<=90; }).length;
+  const ok      = licenses.filter(l => daysUntil(l.expiryDate) > 90).length;
+
+  const save = () => {
+    if (!form.name || !form.expiryDate) { showToast("請填寫證件名稱與到期日", "error"); return; }
+    setLicenses(prev => [...prev, { ...form, id: Date.now() }]);
+    setForm(EMPTY); setShowAdd(false); showToast("已新增");
+  };
+  const saveEdit = () => {
+    setLicenses(prev => prev.map(l => l.id === editingId ? editData : l));
+    setEditingId(null); showToast("已儲存");
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>📄 毒化物證件到期提醒</h2>
+        <button onClick={() => setShowAdd(v => !v)}
+          style={{ marginLeft:"auto", background:"#0ea5e9", border:"none", color:"#fff",
+            borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+          ＋ 新增證件
+        </button>
+      </div>
+
+      {/* 統計卡 */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"已到期",    value:expired, color:"#ef4444", icon:"🔴" },
+          { label:"30天內到期", value:soon30,  color:"#f97316", icon:"🟠" },
+          { label:"90天內到期", value:soon90,  color:"#eab308", icon:"🟡" },
+          { label:"有效",      value:ok,      color:"#22c55e", icon:"🟢" },
+        ].map(s => (
+          <div key={s.label} style={{ background:"#1e293b", borderRadius:10, padding:"14px 16px",
+            borderTop:`3px solid ${s.color}` }}>
+            <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.icon} {s.value}</div>
+            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 新增表單 */}
+      {showAdd && (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:18, marginBottom:16, border:"1px solid #334155" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>＋ 新增證件提醒</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+            <div style={{ gridColumn:"1 / span 2" }}>
+              <label style={labelS}>證件名稱 *（許可證字號）</label>
+              <select value={form.name} onChange={e => setForm({...form,name:e.target.value})} style={inputS}>
+                <option value="">選擇或輸入</option>
+                {PERMIT_NUMBERS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>到期日 *</label>
+              <input type="date" value={form.expiryDate} onChange={e => setForm({...form,expiryDate:e.target.value})} style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>類型</label>
+              <select value={form.type} onChange={e => setForm({...form,type:e.target.value})} style={inputS}>
+                {["毒性化學物質操作許可","關注化學物質操作許可","其他"].map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>相關化學品</label>
+              <input value={form.chemicals} onChange={e => setForm({...form,chemicals:e.target.value})}
+                placeholder="乙腈、三氯甲烷等" style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>備註</label>
+              <input value={form.note} onChange={e => setForm({...form,note:e.target.value})} style={inputS} />
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:14 }}>
+            <button onClick={save} style={{ background:"#0ea5e9", border:"none", color:"#fff",
+              borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>儲存</button>
+            <button onClick={() => { setShowAdd(false); setForm(EMPTY); }}
+              style={{ background:"#334155", border:"none", color:"#94a3b8",
+                borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>取消</button>
+          </div>
+        </div>
+      )}
+
+      {/* 證件列表 */}
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {sorted.map(l => {
+          const s = statusInfo(l.expiryDate);
+          const isEditing = editingId === l.id;
+          const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+            borderRadius:4, padding:"4px 8px", fontSize:12, width:"100%", boxSizing:"border-box" };
+          return (
+            <div key={l.id} style={{ background:"#1e293b", borderRadius:12, padding:"16px 18px",
+              border:`1px solid ${s.border}33`, borderLeft:`4px solid ${s.border}` }}>
+              {isEditing ? (
+                <div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:10 }}>
+                    <div style={{ gridColumn:"1 / span 2" }}>
+                      <label style={labelS}>證件名稱</label>
+                      <select value={editData.name||""} onChange={e => setEditData({...editData,name:e.target.value})} style={inS}>
+                        {PERMIT_NUMBERS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelS}>到期日</label>
+                      <input type="date" value={editData.expiryDate||""} onChange={e => setEditData({...editData,expiryDate:e.target.value})} style={inS} />
+                    </div>
+                    <div>
+                      <label style={labelS}>類型</label>
+                      <select value={editData.type||""} onChange={e => setEditData({...editData,type:e.target.value})} style={inS}>
+                        {["毒性化學物質操作許可","關注化學物質操作許可","其他"].map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelS}>相關化學品</label>
+                      <input value={editData.chemicals||""} onChange={e => setEditData({...editData,chemicals:e.target.value})} style={inS} />
+                    </div>
+                    <div>
+                      <label style={labelS}>備註</label>
+                      <input value={editData.note||""} onChange={e => setEditData({...editData,note:e.target.value})} style={inS} />
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button onClick={saveEdit} style={{ fontSize:12, background:"#16a34a", border:"none",
+                      color:"#fff", borderRadius:6, padding:"5px 14px", cursor:"pointer" }}>✓ 儲存</button>
+                    <button onClick={() => setEditingId(null)} style={{ fontSize:12, background:"#334155",
+                      border:"none", color:"#94a3b8", borderRadius:6, padding:"5px 12px", cursor:"pointer" }}>取消</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:6 }}>
+                      <span style={{ fontSize:15, fontWeight:800, color:"#f1f5f9" }}>{l.name}</span>
+                      <span style={{ fontSize:11, background:s.bg, border:`1px solid ${s.border}`,
+                        color:s.color, padding:"2px 10px", borderRadius:20 }}>
+                        {s.icon} {s.label}
+                      </span>
+                    </div>
+                    <div style={{ display:"flex", gap:16, fontSize:11, flexWrap:"wrap" }}>
+                      <span style={{ color:"#64748b" }}>類型：<span style={{ color:"#94a3b8" }}>{l.type}</span></span>
+                      <span style={{ color:"#64748b" }}>到期日：<span style={{ color:"#e2e8f0", fontWeight:700 }}>{l.expiryDate}</span></span>
+                      {l.chemicals && <span style={{ color:"#64748b" }}>相關化學品：<span style={{ color:"#94a3b8" }}>{l.chemicals}</span></span>}
+                      {l.note && <span style={{ color:"#475569" }}>備註：{l.note}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={() => { setEditingId(l.id); setEditData({...l}); }}
+                      style={{ fontSize:11, background:"#1e3a5f", border:"none", color:"#93c5fd",
+                        borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>✏️ 編輯</button>
+                    <button onClick={() => {
+                      if (window.confirm("確定刪除？")) { setLicenses(prev => prev.filter(x => x.id !== l.id)); showToast("已刪除"); }
+                    }} style={{ fontSize:11, background:"#7f1d1d", border:"none", color:"#fca5a5",
+                      borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>刪除</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
