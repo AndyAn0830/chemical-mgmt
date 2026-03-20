@@ -9,8 +9,8 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <!-- Firebase -->
-  <script src="https://unpkg.com/firebase@9.23.0/compat/app/dist/index.js"></script>
-  <script src="https://unpkg.com/firebase@9.23.0/compat/database/dist/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.min.js"></script>
   <script>
     (function() {
       var _w = console.warn;
@@ -30,6 +30,18 @@
       firebase.initializeApp(firebaseConfig);
       window.firebaseDb = firebase.database();
       console.log('Firebase connected ✓');
+      // Show connection status
+      window.firebaseDb.ref('.info/connected').on('value', snap => {
+        const el = document.getElementById('fb-indicator');
+        if (!el) return;
+        if (snap.val() === true) {
+          el.textContent = '🟢 已同步';
+          el.style.color = '#22c55e';
+        } else {
+          el.textContent = '🔴 離線';
+          el.style.color = '#ef4444';
+        }
+      });
     } catch(e) {
       console.warn('Firebase init failed:', e);
       window.firebaseDb = null;
