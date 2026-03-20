@@ -27,7 +27,7 @@
 
 
 // ─── Initial Data ──────────────────────────────────────────────────────────────
-const BUILDINGS = ["大愛樓", "感恩樓", "合心樓", "協力樓"];
+const BUILDINGS = ["大愛樓", "感恩樓", "合心樓", "協力樓", "慈濟大學福田樓"];
 
 const GHS_SYMBOLS = {
   爆炸物: "💥", 易燃: "🔥", 氧化: "🟠", 壓縮氣體: "🔵",
@@ -584,6 +584,7 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
     "感恩樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
     "合心樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
     "協力樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+    "慈濟大學福田樓": ["1F","2F","3F","4F","5F","6F","7F","8F","9F"],
   };
   const availableFloors = FLOORS_BY_BUILDING[mapBuilding] || ["1F"];
   const planKey = `${mapBuilding}_${mapFloor}`;
@@ -1130,14 +1131,16 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
 
 // ─── Campus Map Page ─────────────────────────────────────────────────────────
 const BUILDING_ZONES = [
+  { name:"慈濟大學福田樓", color:"#0891b2", accent:"#67e8f9",
+    grid:{ col:1, row:1, colSpan:1, rowSpan:2 }, label:"福田樓\n9F" },
   { name:"感恩樓", color:"#16a34a", accent:"#86efac",
-    grid:{ col:1, row:1, colSpan:1, rowSpan:1 } },
-  { name:"協力樓", color:"#b45309", accent:"#fbbf24",
     grid:{ col:2, row:1, colSpan:1, rowSpan:1 } },
+  { name:"協力樓", color:"#b45309", accent:"#fbbf24",
+    grid:{ col:3, row:1, colSpan:1, rowSpan:1 } },
   { name:"大愛樓", color:"#1d4ed8", accent:"#93c5fd",
-    grid:{ col:1, row:2, colSpan:1, rowSpan:1 } },
-  { name:"合心樓", color:"#7c3aed", accent:"#c4b5fd",
     grid:{ col:2, row:2, colSpan:1, rowSpan:1 } },
+  { name:"合心樓", color:"#7c3aed", accent:"#c4b5fd",
+    grid:{ col:3, row:2, colSpan:1, rowSpan:1 } },
 ];
 
 function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMapBuilding, setMapFloor }) {
@@ -1152,6 +1155,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
       "感恩樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
       "合心樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
       "協力樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
+      "慈濟大學福田樓": ["1F","2F","3F","4F","5F","6F","7F","8F","9F"],
     };
     const chems = chemicals.filter(c => c.locations.some(l => l.building === b.name));
     const usedFloors = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.floor)))];
@@ -1179,7 +1183,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
 
           {/* 格局主體 + 右側中山路 */}
           <div style={{ display:"flex", alignItems:"stretch", gap:6 }}>
-            <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr",
+            <div style={{ flex:1, display:"grid", gridTemplateColumns:"0.7fr 1fr 1fr",
               gridTemplateRows:"1fr 1fr", gap:10, minHeight:280 }}>
               {BUILDING_ZONES.map(b => {
                 const count = getBuildingChemCount(b.name);
@@ -1203,10 +1207,11 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
                       boxShadow: isHov ? `0 0 0 3px ${b.color}44` : "none",
                     }}>
                     <div style={{
-                      fontSize:16, fontWeight:800, color: isHov ? b.accent : "#e2e8f0",
-                      letterSpacing:2, textShadow: isHov ? `0 0 12px ${b.color}` : "none"
+                      fontSize:14, fontWeight:800, color: isHov ? b.accent : "#e2e8f0",
+                      letterSpacing:1, textShadow: isHov ? `0 0 12px ${b.color}` : "none",
+                      textAlign:"center"
                     }}>
-                      {b.name}
+                      {b.label || b.name}
                     </div>
                     {count > 0 ? (
                       <div style={{
@@ -2682,12 +2687,46 @@ function InspectionPage({ inspections, setInspections, showToast }) {
   const [viewId, setViewId] = useState(null);
   const [filterLoc, setFilterLoc] = useState("");
   const photoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [drawing, setDrawing] = useState(false);
+  const [hasSig, setHasSig] = useState(false);
+
+  const startDraw = (e) => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const r = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    setDrawing(true); setHasSig(true);
+  };
+  const draw = (e) => {
+    if (!drawing) return;
+    e.preventDefault();
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const r = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    ctx.lineTo(x, y); ctx.strokeStyle="#38bdf8"; ctx.lineWidth=2;
+    ctx.lineCap="round"; ctx.lineJoin="round"; ctx.stroke();
+  };
+  const stopDraw = () => setDrawing(false);
+  const clearSig = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    setHasSig(false);
+  };
+  const getSigData = () => {
+    const canvas = canvasRef.current;
+    return hasSig && canvas ? canvas.toDataURL() : "";
+  };
 
   const EMPTY = {
     date: new Date().toISOString().slice(0,10),
     location:"", inspector:"", result:"正常",
     checklist:{}, note:"",
-    photos:[], photoNames:[]
+    photos:[], photoNames:[], signature:""
   };
   const [form, setForm] = useState(EMPTY);
 
@@ -2713,7 +2752,8 @@ function InspectionPage({ inspections, setInspections, showToast }) {
 
   const saveNew = () => {
     if (!form.location || !form.date) { showToast("請填寫日期與巡檢地點","error"); return; }
-    setInspections(prev => [...prev, { ...form, id: Date.now() }]);
+    setInspections(prev => [...prev, { ...form, id: Date.now(), signature: getSigData() }]);
+    clearSig();
     setForm(EMPTY);
     setShowAdd(false);
     showToast("巡檢紀錄已儲存");
@@ -2851,6 +2891,29 @@ function InspectionPage({ inspections, setInspections, showToast }) {
             )}
           </div>
 
+          {/* 手寫簽名 */}
+          <div style={{ background:"#0f172a", borderRadius:8, padding:12, marginBottom:14,
+            border:"1px solid #334155" }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontSize:12, color:"#64748b" }}>✍️ 巡檢人員簽名</span>
+              <button onClick={clearSig}
+                style={{ marginLeft:"auto", fontSize:11, background:"#334155", border:"none",
+                  color:"#94a3b8", borderRadius:4, padding:"3px 10px", cursor:"pointer" }}>
+                清除
+              </button>
+            </div>
+            <canvas ref={canvasRef} width={500} height={120}
+              style={{ width:"100%", height:120, background:"#1e293b", borderRadius:6,
+                border:`1px solid ${hasSig ? "#38bdf8" : "#334155"}`,
+                cursor:"crosshair", touchAction:"none" }}
+              onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+              onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+            />
+            <div style={{ fontSize:10, color:"#475569", marginTop:4, textAlign:"center" }}>
+              用滑鼠或觸控筆在上方區域簽名
+            </div>
+          </div>
+
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={saveNew} style={{ background:"#0ea5e9", border:"none", color:"#fff",
               borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>儲存</button>
@@ -2895,6 +2958,14 @@ function InspectionPage({ inspections, setInspections, showToast }) {
                         return <span key={k} style={{ fontSize:10, background:bg, color:tc,
                           padding:"1px 7px", borderRadius:20 }}>{ic} {k}</span>;
                       })}
+                    </div>
+                  )}
+                  {/* 簽名 */}
+                  {r.signature && (
+                    <div style={{ marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:"#475569" }}>簽名：</span>
+                      <img src={r.signature} alt="簽名" style={{ height:36, background:"#1e293b",
+                        borderRadius:4, border:"1px solid #334155", verticalAlign:"middle", marginLeft:4 }} />
                     </div>
                   )}
                   {/* 縮圖 */}
