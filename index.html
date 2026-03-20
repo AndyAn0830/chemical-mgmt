@@ -298,6 +298,8 @@ function App() {
   const [toast, setToast] = useState(null);
   // floorPlans: { "合心樓_4F": { url: "data:image/...", name: "4F.png" }, ... }
   const [floorPlans, setFloorPlans] = useState({});
+  const [floorVideos, setFloorVideos] = useState({});   // { "大愛樓_5F": "https://youtube.com/embed/..." }
+  const [floorPanoramas, setFloorPanoramas] = useState({}); // { "大愛樓_5F": [{ id, label, url }] }
   // mapMarkers: { "合心樓_4F": [ { id, x, y, chemId, label }, ... ] }
   const [mapMarkers, setMapMarkers] = useState({});
 
@@ -408,7 +410,7 @@ function App() {
         {/* Page Content */}
         <div style={{ flex:1, padding:24, overflow:"auto" }}>
           {page === "dashboard" && <DashboardPage stats={stats} chemicals={chemicals} setPage={setPage} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} />}
-          {page === "map" && <MapPage chemicals={chemicals} mapBuilding={mapBuilding} setMapBuilding={setMapBuilding} mapFloor={mapFloor} setMapFloor={setMapFloor} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} floorPlans={floorPlans} setFloorPlans={setFloorPlans} mapMarkers={mapMarkers} setMapMarkers={setMapMarkers} isAdminMode={isAdminMode} showToast={showToast} />}
+          {page === "map" && <MapPage chemicals={chemicals} mapBuilding={mapBuilding} setMapBuilding={setMapBuilding} mapFloor={mapFloor} setMapFloor={setMapFloor} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} floorPlans={floorPlans} setFloorPlans={setFloorPlans} mapMarkers={mapMarkers} setMapMarkers={setMapMarkers} floorVideos={floorVideos} setFloorVideos={setFloorVideos} floorPanoramas={floorPanoramas} setFloorPanoramas={setFloorPanoramas} isAdminMode={isAdminMode} showToast={showToast} />}
           {page === "iso" && <IsoPage chemicals={chemicals} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} setPage={setPage} setMapBuilding={setMapBuilding} setMapFloor={setMapFloor} />}
           {page === "chemicals" && <ChemicalsPage chemicals={filteredChemicals} allChemicals={chemicals} setChemicals={setChemicals} isAdminMode={isAdminMode} searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterCat={filterCat} setFilterCat={setFilterCat} setSelectedChem={setSelectedChem} setShowChemDetail={setShowChemDetail} setEditingChem={setEditingChem} setShowAddChem={setShowAddChem} showToast={showToast} />}
           {page === "sds" && <SDSPage chemicals={chemicals} isAdminMode={isAdminMode} setChemicals={setChemicals} showToast={showToast} />}
@@ -596,7 +598,7 @@ function DashboardPage({ stats, chemicals, setPage, setSelectedChem, setShowChem
 // ─── Map Page (Image Upload + Click-to-Mark) ───────────────────────────────────
 function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor,
   setSelectedChem, setShowChemDetail, floorPlans, setFloorPlans,
-  mapMarkers, setMapMarkers, isAdminMode, showToast }) {
+  mapMarkers, setMapMarkers, floorVideos, setFloorVideos, floorPanoramas, setFloorPanoramas, isAdminMode, showToast }) {
 
   const FLOORS_BY_BUILDING = {
     "大愛樓": ["B1F","1F","2F","3F","5F","6F","7F"],
@@ -613,6 +615,48 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
     chemical: { label:"化學品", color_tox:"#ef4444", color_con:"#f59e0b", icon:"⚗" },
     disaster: { label:"防災物資", color:"#22c55e", icon:"🛡️" },
   };
+  const [showVideoEdit, setShowVideoEdit] = useState(false);
+  const [videoInput, setVideoInput] = useState("");
+  const [panoramaModal, setPanoramaModal] = useState(null); // { label, url }
+  const [showPanoramaAdd, setShowPanoramaAdd] = useState(false);
+  const [panoramaLabel, setPanoramaLabel] = useState("");
+  const panoramaFileRef = useRef(null);
+  const panoramaDragRef = useRef(null);
+
+  const currentVideo = floorVideos[planKey] || "";
+  const currentPanoramas = floorPanoramas[planKey] || [];
+
+  // Convert YouTube watch URL → embed URL
+  const toEmbedUrl = (url) => {
+    url = url.trim();
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([A-Za-z0-9_-]{11})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    if (url.includes("youtube.com/embed/")) return url;
+    return "";
+  };
+
+  const saveVideo = () => {
+    const embed = toEmbedUrl(videoInput);
+    if (!embed && videoInput.trim()) { alert("請貼上有效的 YouTube 網址"); return; }
+    setFloorVideos(prev => ({ ...prev, [planKey]: embed }));
+    setShowVideoEdit(false);
+    setVideoInput("");
+  };
+
+  const handlePanoramaUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const entry = { id: Date.now(), label: panoramaLabel || "全景圖", url: ev.target.result };
+      setFloorPanoramas(prev => ({ ...prev, [planKey]: [...(prev[planKey] || []), entry] }));
+      setPanoramaLabel("");
+      setShowPanoramaAdd(false);
+      panoramaFileRef.current.value = "";
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [addingMarker, setAddingMarker] = useState(false); // click-to-add mode
   const [markerMode, setMarkerMode] = useState("chemical"); // "chemical" | "disaster"
   const [pendingPos, setPendingPos] = useState(null);       // { x%, y% } awaiting selection
@@ -966,8 +1010,141 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
               🔒 請以管理員身份登入<br />以上傳平面圖及新增標記
             </div>
           )}
+
+          {/* ── YouTube 影片 ── */}
+          <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:currentVideo ? 10 : 0 }}>
+              <span style={{ fontSize:12, fontWeight:600, color:"#94a3b8" }}>🎬 樓層影片</span>
+              {isAdminMode && (
+                <button onClick={() => { setShowVideoEdit(v => !v); setVideoInput(currentVideo); }}
+                  style={{ marginLeft:"auto", fontSize:11, background:"#334155", border:"none",
+                    color:"#94a3b8", borderRadius:4, padding:"3px 8px", cursor:"pointer" }}>
+                  {currentVideo ? "✏️ 更換" : "＋ 新增"}
+                </button>
+              )}
+              {isAdminMode && currentVideo && (
+                <button onClick={() => setFloorVideos(prev => ({ ...prev, [planKey]:"" }))}
+                  style={{ marginLeft:4, fontSize:11, background:"#7f1d1d", border:"none",
+                    color:"#fca5a5", borderRadius:4, padding:"3px 8px", cursor:"pointer" }}>
+                  刪除
+                </button>
+              )}
+            </div>
+            {showVideoEdit && (
+              <div style={{ marginTop:8 }}>
+                <input value={videoInput} onChange={e => setVideoInput(e.target.value)}
+                  placeholder="貼上 YouTube 網址..."
+                  style={{ width:"100%", background:"#0f172a", border:"1px solid #334155",
+                    color:"#e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:12, boxSizing:"border-box" }} />
+                <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                  <button onClick={saveVideo} style={{ ...btnStyle("#dc2626"), flex:1, fontSize:11, padding:"5px 0" }}>儲存</button>
+                  <button onClick={() => setShowVideoEdit(false)} style={{ ...btnStyle("#334155"), flex:1, fontSize:11, padding:"5px 0" }}>取消</button>
+                </div>
+              </div>
+            )}
+            {currentVideo ? (
+              <div style={{ marginTop:8, borderRadius:8, overflow:"hidden", position:"relative", paddingBottom:"56.25%", height:0 }}>
+                <iframe src={currentVideo} title="樓層影片"
+                  style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen />
+              </div>
+            ) : !showVideoEdit && (
+              <div style={{ fontSize:11, color:"#475569", marginTop:6, textAlign:"center" }}>
+                尚未設定影片
+              </div>
+            )}
+          </div>
+
+          {/* ── 全景圖 ── */}
+          <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontSize:12, fontWeight:600, color:"#94a3b8" }}>🔭 全景圖</span>
+              {isAdminMode && (
+                <button onClick={() => setShowPanoramaAdd(v => !v)}
+                  style={{ marginLeft:"auto", fontSize:11, background:"#334155", border:"none",
+                    color:"#94a3b8", borderRadius:4, padding:"3px 8px", cursor:"pointer" }}>
+                  ＋ 上傳
+                </button>
+              )}
+            </div>
+            {showPanoramaAdd && (
+              <div style={{ marginBottom:10, padding:10, background:"#0f172a", borderRadius:8 }}>
+                <input value={panoramaLabel} onChange={e => setPanoramaLabel(e.target.value)}
+                  placeholder="名稱（例：走廊、研究室）"
+                  style={{ width:"100%", background:"#1e293b", border:"1px solid #334155",
+                    color:"#e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:12,
+                    boxSizing:"border-box", marginBottom:6 }} />
+                <input ref={panoramaFileRef} type="file" accept="image/*" onChange={handlePanoramaUpload} style={{ display:"none" }} />
+                <button onClick={() => panoramaFileRef.current.click()}
+                  style={{ ...btnStyle("#0ea5e9"), width:"100%", fontSize:11, padding:"6px 0" }}>
+                  📁 選擇全景圖片
+                </button>
+                <button onClick={() => setShowPanoramaAdd(false)}
+                  style={{ ...btnStyle("#334155"), width:"100%", fontSize:11, padding:"5px 0", marginTop:4 }}>
+                  取消
+                </button>
+              </div>
+            )}
+            {currentPanoramas.length === 0 ? (
+              <div style={{ fontSize:11, color:"#475569", textAlign:"center" }}>尚未上傳全景圖</div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {currentPanoramas.map(p => (
+                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <button onClick={() => setPanoramaModal(p)}
+                      style={{ flex:1, textAlign:"left", padding:"7px 10px", background:"#0f172a",
+                        border:"1px solid #0ea5e933", borderRadius:6, color:"#38bdf8",
+                        cursor:"pointer", fontSize:12 }}
+                      onMouseEnter={e => e.currentTarget.style.background="#172032"}
+                      onMouseLeave={e => e.currentTarget.style.background="#0f172a"}>
+                      🔭 {p.label}
+                    </button>
+                    {isAdminMode && (
+                      <button onClick={() => setFloorPanoramas(prev => ({
+                        ...prev, [planKey]: (prev[planKey]||[]).filter(x => x.id !== p.id)
+                      }))} style={{ background:"#7f1d1d", border:"none", color:"#fca5a5",
+                        borderRadius:4, padding:"4px 8px", cursor:"pointer", fontSize:11 }}>✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* ── 全景圖 Modal ── */}
+      {panoramaModal && (
+        <div onClick={() => setPanoramaModal(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:1000,
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ width:"90vw", maxWidth:900 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
+              <span style={{ fontSize:15, fontWeight:700, color:"#f1f5f9" }}>🔭 {panoramaModal.label}</span>
+              <button onClick={() => setPanoramaModal(null)}
+                style={{ marginLeft:"auto", background:"#334155", border:"none", color:"#fff",
+                  borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:13 }}>✕ 關閉</button>
+            </div>
+            {/* 全景圖：左右滾動瀏覽 */}
+            <div style={{ borderRadius:10, overflow:"hidden", background:"#0f172a",
+              position:"relative" }}>
+              <div style={{ overflowX:"auto", overflowY:"hidden", cursor:"grab",
+                WebkitOverflowScrolling:"touch" }}>
+                <img src={panoramaModal.url} alt={panoramaModal.label}
+                  style={{ height:"60vh", width:"auto", maxWidth:"none", display:"block",
+                    userSelect:"none", WebkitUserDrag:"none" }}
+                  draggable={false} />
+              </div>
+              <div style={{ position:"absolute", bottom:10, left:"50%", transform:"translateX(-50%)",
+                background:"rgba(0,0,0,0.6)", color:"#94a3b8", fontSize:11,
+                padding:"4px 12px", borderRadius:20, pointerEvents:"none" }}>
+                ← 左右滑動瀏覽全景 →
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
