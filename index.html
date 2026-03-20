@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>花蓮慈濟醫院 毒性及關注化學物質管理系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -247,6 +246,7 @@ function App() {
   const [page, setPage] = useState("dashboard");
   const [chemicals, setChemicals] = useState(INITIAL_CHEMICALS);
   const [declarations, setDeclarations] = useState(INITIAL_DECLARATIONS);
+  const [inspections, setInspections] = useState([]);
   const [licenses, setLicenses] = useState([
     { id:1, name:"花蓮縣毒核字第000006號", type:"毒性化學物質操作許可", chemicals:"乙腈、三氯甲烷等", expiryDate:"2026-12-31", note:"" },
     { id:2, name:"花蓮縣毒核字第000025號", type:"毒性化學物質操作許可", chemicals:"甲醯胺等", expiryDate:"2026-06-30", note:"" },
@@ -333,6 +333,7 @@ function App() {
           { id:"emergency", icon:"🚨", label:"緊急應變" },
           { id:"training", icon:"📚", label:"演練/訓練紀錄" },
           { id:"licenses", icon:"📄", label:"證件到期提醒" },
+          { id:"inspection", icon:"🔍", label:"巡檢紀錄" },
         ].map(item => (
           <button key={item.id} onClick={() => setPage(item.id)}
             style={{
@@ -394,6 +395,7 @@ function App() {
           {page === "emergency" && <EmergencyPage chemicals={chemicals} />}
           {page === "training" && <TrainingPage records={trainingRecords} setRecords={setTrainingRecords} isAdminMode={isAdminMode} showToast={showToast} />}
           {page === "licenses" && <LicensePage licenses={licenses} setLicenses={setLicenses} showToast={showToast} />}
+          {page === "inspection" && <InspectionPage inspections={inspections} setInspections={setInspections} showToast={showToast} />}
         </div>
       </main>
 
@@ -2654,6 +2656,304 @@ function LicensePage({ licenses, setLicenses, showToast }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Inspection Page ──────────────────────────────────────────────────────────
+const INSPECT_LOCATIONS = [
+  "大愛樓2F 檢驗科",
+  "大愛樓3F 生殖醫學中心",
+  "感恩樓B1F 核醫製藥科",
+  "感恩樓2F 心導管室",
+  "合心樓B1F 供應中心",
+  "合心樓5F 研究部",
+  "慈濟大學福田9樓",
+  "其他",
+];
+const INSPECT_ITEMS = [
+  "通風設備正常","安全標示完整","個人防護裝備齊全",
+  "緊急沖眼站可用","存量與紀錄相符","容器密封良好",
+  "廢棄物妥善處置","防溢圍堵材料到位","消防設備正常",
+];
+
+function InspectionPage({ inspections, setInspections, showToast }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [viewId, setViewId] = useState(null);
+  const [filterLoc, setFilterLoc] = useState("");
+  const photoRef = useRef(null);
+
+  const EMPTY = {
+    date: new Date().toISOString().slice(0,10),
+    location:"", inspector:"", result:"正常",
+    checklist:{}, note:"",
+    photos:[], photoNames:[]
+  };
+  const [form, setForm] = useState(EMPTY);
+
+  const inputS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
+    borderRadius:6, padding:"7px 10px", fontSize:12, width:"100%", boxSizing:"border-box" };
+  const labelS = { fontSize:11, color:"#64748b", marginBottom:3, display:"block" };
+
+  const handlePhotos = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        setForm(f => ({
+          ...f,
+          photos: [...f.photos, ev.target.result],
+          photoNames: [...f.photoNames, file.name]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const saveNew = () => {
+    if (!form.location || !form.date) { showToast("請填寫日期與巡檢地點","error"); return; }
+    setInspections(prev => [...prev, { ...form, id: Date.now() }]);
+    setForm(EMPTY);
+    setShowAdd(false);
+    showToast("巡檢紀錄已儲存");
+  };
+
+  const filtered = inspections.filter(r => !filterLoc || r.location === filterLoc);
+  const sorted = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
+
+  const resultColor = r => r === "正常" ? "#22c55e" : r === "待改善" ? "#f59e0b" : "#ef4444";
+
+  const viewRecord = inspections.find(r => r.id === viewId);
+
+  return (
+    <div>
+      {/* 標題 */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+        <h2 style={{ margin:0, fontSize:20, color:"#f1f5f9" }}>🔍 巡檢紀錄</h2>
+        <select value={filterLoc} onChange={e => setFilterLoc(e.target.value)}
+          style={{ ...inputS, width:160, marginLeft:8 }}>
+          <option value="">全部地點</option>
+          {INSPECT_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <button onClick={() => { setShowAdd(v => !v); setForm(EMPTY); }}
+          style={{ marginLeft:"auto", background:"#0ea5e9", border:"none", color:"#fff",
+            borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+          ＋ 新增巡檢
+        </button>
+      </div>
+
+      {/* 統計 */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"總筆數",  value:inspections.length,                                           color:"#38bdf8", icon:"📋" },
+          { label:"正常",    value:inspections.filter(r=>r.result==="正常").length,              color:"#22c55e", icon:"✅" },
+          { label:"待改善",  value:inspections.filter(r=>r.result!=="正常").length,              color:"#f59e0b", icon:"⚠️" },
+        ].map(s => (
+          <div key={s.label} style={{ background:"#1e293b", borderRadius:10, padding:"14px 16px",
+            borderTop:`3px solid ${s.color}` }}>
+            <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.icon} {s.value}</div>
+            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 新增表單 */}
+      {showAdd && (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:18, marginBottom:16, border:"1px solid #334155" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#f1f5f9", marginBottom:14 }}>📋 新增巡檢紀錄</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:14 }}>
+            <div>
+              <label style={labelS}>巡檢日期 *</label>
+              <input type="date" value={form.date} onChange={e => setForm({...form,date:e.target.value})} style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>巡檢地點 *</label>
+              <select value={form.location} onChange={e => setForm({...form,location:e.target.value})} style={inputS}>
+                <option value="">選擇地點</option>
+                {INSPECT_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>巡檢人員</label>
+              <input value={form.inspector} onChange={e => setForm({...form,inspector:e.target.value})}
+                placeholder="姓名" style={inputS} />
+            </div>
+            <div>
+              <label style={labelS}>整體結果</label>
+              <select value={form.result} onChange={e => setForm({...form,result:e.target.value})} style={inputS}>
+                {["正常","待改善","異常"].map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn:"2 / span 2" }}>
+              <label style={labelS}>備註 / 異常說明</label>
+              <input value={form.note} onChange={e => setForm({...form,note:e.target.value})}
+                placeholder="記錄異常情況或改善建議" style={inputS} />
+            </div>
+          </div>
+
+          {/* 查核項目 */}
+          <div style={{ background:"#0f172a", borderRadius:8, padding:12, marginBottom:14 }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:10, gap:12 }}>
+              <span style={{ fontSize:12, color:"#64748b" }}>☑️ 查核項目</span>
+              <span style={{ fontSize:10, color:"#475569" }}>點擊切換：<span style={{color:"#86efac"}}>○ 未填</span> → <span style={{color:"#86efac"}}>✓ 正常</span> → <span style={{color:"#93c5fd"}}>－ 不適用</span> → <span style={{color:"#fca5a5"}}>✕ 異常</span></span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
+              {INSPECT_ITEMS.map(item => {
+                const val = form.checklist[item] || "未填";
+                const cycleVal = v => v === "未填" ? "正常" : v === "正常" ? "不適用" : v === "不適用" ? "異常" : "未填";
+                const bg = val === "正常" ? "#14532d" : val === "異常" ? "#7f1d1d" : val === "不適用" ? "#1e3a5f" : "#1e293b";
+                const bc = val === "正常" ? "#16a34a" : val === "異常" ? "#ef4444" : val === "不適用" ? "#3b82f6" : "#334155";
+                const tc = val === "正常" ? "#86efac" : val === "異常" ? "#fca5a5" : val === "不適用" ? "#93c5fd" : "#64748b";
+                const icon = val === "正常" ? "✓" : val === "異常" ? "✕" : val === "不適用" ? "－" : "○";
+                return (
+                  <div key={item} onClick={() => setForm(f => ({...f, checklist:{...f.checklist,[item]:cycleVal(val)}}))}
+                    style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+                      padding:"6px 10px", background:bg, borderRadius:6,
+                      border:`1px solid ${bc}`, transition:"all 0.15s", userSelect:"none" }}>
+                    <span style={{ fontSize:13, color:tc, fontWeight:700, width:14, textAlign:"center" }}>{icon}</span>
+                    <span style={{ fontSize:11, color:tc }}>{item}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 照片上傳 */}
+          <div style={{ background:"#0f172a", borderRadius:8, padding:12, marginBottom:14,
+            border:"1px dashed #334155" }}>
+            <div style={{ fontSize:12, color:"#64748b", marginBottom:8 }}>📷 現場照片（可多張）</div>
+            <input ref={photoRef} type="file" accept="image/*" multiple onChange={handlePhotos} style={{ display:"none" }} />
+            <button onClick={() => photoRef.current.click()}
+              style={{ background:"#1e293b", border:"1px solid #334155", color:"#94a3b8",
+                borderRadius:6, padding:"7px 16px", cursor:"pointer", fontSize:12, marginBottom:8 }}>
+              📷 選擇照片
+            </button>
+            {form.photos.length > 0 && (
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:8 }}>
+                {form.photos.map((p, i) => (
+                  <div key={i} style={{ position:"relative" }}>
+                    <img src={p} alt="" style={{ width:80, height:80, objectFit:"cover",
+                      borderRadius:6, border:"1px solid #334155" }} />
+                    <button onClick={() => setForm(f => ({
+                        ...f,
+                        photos: f.photos.filter((_,j)=>j!==i),
+                        photoNames: f.photoNames.filter((_,j)=>j!==i)
+                      }))}
+                      style={{ position:"absolute", top:-6, right:-6, background:"#ef4444",
+                        border:"none", color:"#fff", borderRadius:"50%", width:18, height:18,
+                        fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={saveNew} style={{ background:"#0ea5e9", border:"none", color:"#fff",
+              borderRadius:6, padding:"8px 20px", cursor:"pointer", fontSize:13, fontWeight:600 }}>儲存</button>
+            <button onClick={() => setShowAdd(false)} style={{ background:"#334155", border:"none",
+              color:"#94a3b8", borderRadius:6, padding:"8px 16px", cursor:"pointer", fontSize:13 }}>取消</button>
+          </div>
+        </div>
+      )}
+
+      {/* 紀錄列表 */}
+      {sorted.length === 0 ? (
+        <div style={{ background:"#1e293b", borderRadius:10, padding:40, textAlign:"center", color:"#475569" }}>
+          尚無巡檢紀錄，點上方「＋ 新增巡檢」開始記錄
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {sorted.map(r => (
+            <div key={r.id} style={{ background:"#1e293b", borderRadius:12, padding:"14px 18px",
+              borderLeft:`4px solid ${resultColor(r.result)}`,
+              border:`1px solid ${resultColor(r.result)}33`, borderLeftWidth:4 }}>
+              <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:6 }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:"#f1f5f9" }}>{r.date}</span>
+                    <span style={{ fontSize:12, color:"#64748b" }}>📍 {r.location}</span>
+                    {r.inspector && <span style={{ fontSize:11, color:"#475569" }}>👤 {r.inspector}</span>}
+                    <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20,
+                      background:`${resultColor(r.result)}22`, border:`1px solid ${resultColor(r.result)}`,
+                      color:resultColor(r.result) }}>
+                      {r.result}
+                    </span>
+                  </div>
+                  {r.note && <div style={{ fontSize:11, color:"#94a3b8", marginBottom:6 }}>備註：{r.note}</div>}
+                  {/* 查核摘要 */}
+                  {Object.keys(r.checklist||{}).filter(k=>r.checklist[k] && r.checklist[k]!=="未填").length > 0 && (
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:6 }}>
+                      {Object.keys(r.checklist).filter(k=>r.checklist[k] && r.checklist[k]!=="未填").map(k => {
+                        const v = r.checklist[k];
+                        const bg = v==="正常"?"#14532d":v==="異常"?"#7f1d1d":"#1e3a5f";
+                        const tc = v==="正常"?"#86efac":v==="異常"?"#fca5a5":"#93c5fd";
+                        const ic = v==="正常"?"✓":v==="異常"?"✕":"－";
+                        return <span key={k} style={{ fontSize:10, background:bg, color:tc,
+                          padding:"1px 7px", borderRadius:20 }}>{ic} {k}</span>;
+                      })}
+                    </div>
+                  )}
+                  {/* 縮圖 */}
+                  {r.photos?.length > 0 && (
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {r.photos.map((p,i) => (
+                        <img key={i} src={p} alt="" onClick={() => setViewId(r.id)}
+                          style={{ width:56, height:56, objectFit:"cover", borderRadius:6,
+                            border:"1px solid #334155", cursor:"pointer" }} />
+                      ))}
+                      <span style={{ fontSize:10, color:"#475569", alignSelf:"center" }}>點擊查看</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                  {r.photos?.length > 0 && (
+                    <button onClick={() => setViewId(r.id)}
+                      style={{ fontSize:11, background:"#1e3a5f", border:"none", color:"#93c5fd",
+                        borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>
+                      📷 {r.photos.length}張
+                    </button>
+                  )}
+                  <button onClick={() => {
+                    if (window.confirm("確定刪除？")) {
+                      setInspections(prev => prev.filter(x => x.id !== r.id));
+                      showToast("已刪除");
+                    }
+                  }} style={{ fontSize:11, background:"#7f1d1d", border:"none",
+                    color:"#fca5a5", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>刪除</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 照片全覽 Modal */}
+      {viewRecord && (
+        <div onClick={() => setViewId(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:1000,
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:20 }}>
+          <div style={{ width:"100%", maxWidth:800 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:12 }}>
+              <span style={{ fontSize:14, fontWeight:700, color:"#f1f5f9" }}>
+                📷 {viewRecord.date} · {viewRecord.location}
+              </span>
+              <button onClick={() => setViewId(null)}
+                style={{ marginLeft:"auto", background:"#334155", border:"none", color:"#fff",
+                  borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:13 }}>✕ 關閉</button>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:10 }}>
+              {viewRecord.photos.map((p,i) => (
+                <img key={i} src={p} alt={`照片${i+1}`}
+                  style={{ width:"100%", borderRadius:8, border:"1px solid #334155", display:"block" }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
