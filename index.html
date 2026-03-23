@@ -1647,17 +1647,17 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                   {showAddLoc ? (
                       <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
                         <div style={{ display:"flex", gap:4 }}>
-                          <select value={newLocation.building} onChange={e => setNewLocation(l => ({...l, building:e.target.value}))}
-                            style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
-                              borderRadius:6, padding:"4px 8px", fontSize:11 }}>
+                          <select value={newLocation.building}
+                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, building:v})); }}
+                            style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }}>
                             {BUILDINGS.map(b => <option key={b}>{b}</option>)}
                           </select>
-                          <input value={newLocation.floor} onChange={e => setNewLocation(l => ({...l, floor:e.target.value}))}
-                            placeholder="樓層" style={{ width:60, background:"#0f172a", border:"1px solid #334155",
-                              color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
-                          <input value={newLocation.room} onChange={e => setNewLocation(l => ({...l, room:e.target.value}))}
-                            placeholder="部門/房間" style={{ flex:2, background:"#0f172a", border:"1px solid #334155",
-                              color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
+                          <input value={newLocation.floor}
+                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, floor:v})); }}
+                            placeholder="樓層" style={{ width:60, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
+                          <input value={newLocation.room}
+                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, room:v})); }}
+                            placeholder="部門/房間" style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
                         </div>
                         <div style={{ display:"flex", gap:6 }}>
                           <button onClick={() => { updateSelected(c => ({...c, locations:[...(c.locations||[]), {...newLocation}]})); setNewLocation({building:"合心樓",floor:"",room:""}); setShowAddLoc(false); }}
