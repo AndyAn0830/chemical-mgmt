@@ -357,9 +357,9 @@ function App() {
   const [filterCat, setFilterCat] = useState("全部");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState(null);
-  // floorPlans: { "合心樓_4F": { url: "data:image/...", name: "4F.png" }, ... }
-  // floorPlans & panoramas kept local (contain large base64 images)
-  const [floorPlans, setFloorPlans] = useState({});
+  // floorPlans synced via Firebase (base64 images stored as-is)
+  const [floorPlans, setFloorPlans] = useSyncedState('floorPlans', {});
+  // panoramas kept local only (can be very large)
   const [floorPanoramas, setFloorPanoramas] = useState({});
 
   const showToast = (msg, type = "success") => {
