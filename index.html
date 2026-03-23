@@ -1489,8 +1489,6 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
   const [selected, setSelected] = useState(null);
   const [newHazard, setNewHazard] = useState("");
   const [newEquip, setNewEquip] = useState("");
-  const [newLocation, setNewLocation] = useState({ building:"合心樓", floor:"", room:"" });
-  const [showAddLoc, setShowAddLoc] = useState(false);
 
   const updateSelected = (updater) => {
     setChemicals(prev => prev.map(c => c.id === selected.id ? updater(c) : c));
@@ -1636,46 +1634,12 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
 
                 <SDSSection title="📍 存放位置" color="#a78bfa">
                   {(selected.locations||[]).map((l, i) => (
-                    <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
-                      padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
+                    <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0", padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                       <span style={{ flex:1 }}>🏢 {l.building} {l.floor} · {l.room}</span>
-                      <button onClick={() => updateSelected(c => ({...c, locations:(c.locations||[]).filter((_,j)=>j!==i)}))}
-                          style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
-                            fontSize:12, padding:"0 4px" }}>✕</button>
+                      {isAdminMode && <button onClick={() => updateSelected(c => ({...c, locations:(c.locations||[]).filter((_,j) => j !== i)}))} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:12, padding:"0 4px" }}>✕</button>}
                     </div>
                   ))}
-                  {showAddLoc ? (
-                      <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
-                        <div style={{ display:"flex", gap:4 }}>
-                          <select value={newLocation.building}
-                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, building:v})); }}
-                            style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }}>
-                            {BUILDINGS.map(b => <option key={b}>{b}</option>)}
-                          </select>
-                          <input value={newLocation.floor}
-                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, floor:v})); }}
-                            placeholder="樓層" style={{ width:60, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
-                          <input value={newLocation.room}
-                            onChange={e => { const v=e.target.value; setNewLocation(l => ({...l, room:v})); }}
-                            placeholder="部門/房間" style={{ flex:2, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
-                        </div>
-                        <div style={{ display:"flex", gap:6 }}>
-                          <button onClick={() => { updateSelected(c => ({...c, locations:[...(c.locations||[]), {...newLocation}]})); setNewLocation({building:"合心樓",floor:"",room:""}); setShowAddLoc(false); }}
-                            style={{ flex:1, background:"#7c3aed", border:"none", color:"#fff", borderRadius:6,
-                              padding:"4px 0", cursor:"pointer", fontSize:11 }}>確認新增</button>
-                          <button onClick={() => setShowAddLoc(false)}
-                            style={{ flex:1, background:"#334155", border:"none", color:"#94a3b8", borderRadius:6,
-                              padding:"4px 0", cursor:"pointer", fontSize:11 }}>取消</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button onClick={() => setShowAddLoc(true)}
-                        style={{ marginTop:8, width:"100%", background:"none", border:"1px dashed #7c3aed",
-                          color:"#a78bfa", borderRadius:6, padding:"5px 0", cursor:"pointer", fontSize:11 }}>
-                        ＋ 新增存放地點
-                      </button>
-                    )
-                  )}
+                  {isAdminMode && <AddLocationInline onAdd={(loc) => updateSelected(c => ({...c, locations:[...(c.locations||[]), loc]}))} />}
                 </SDSSection>
               </div>
 
@@ -1696,6 +1660,32 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AddLocationInline({ onAdd }) {
+  const [show, setShow] = React.useState(false);
+  const [building, setBuilding] = React.useState("合心樓");
+  const [floor, setFloor] = React.useState("");
+  const [room, setRoom] = React.useState("");
+  const inS = { background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 };
+  if (!show) return (
+    <button onClick={() => setShow(true)} style={{ marginTop:8, width:"100%", background:"none", border:"1px dashed #7c3aed", color:"#a78bfa", borderRadius:6, padding:"5px 0", cursor:"pointer", fontSize:11 }}>＋ 新增存放地點</button>
+  );
+  return (
+    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6 }}>
+      <div style={{ display:"flex", gap:4 }}>
+        <select value={building} onChange={e => setBuilding(e.target.value)} style={{...inS, flex:2}}>
+          {BUILDINGS.map(b => <option key={b}>{b}</option>)}
+        </select>
+        <input value={floor} onChange={e => setFloor(e.target.value)} placeholder="樓層" style={{...inS, width:60}} />
+        <input value={room} onChange={e => setRoom(e.target.value)} placeholder="部門" style={{...inS, flex:2}} />
+      </div>
+      <div style={{ display:"flex", gap:6 }}>
+        <button onClick={() => { if (!floor) return; onAdd({building, floor, room}); setFloor(""); setRoom(""); setShow(false); }} style={{ flex:1, background:"#7c3aed", border:"none", color:"#fff", borderRadius:6, padding:"4px 0", cursor:"pointer", fontSize:11 }}>確認新增</button>
+        <button onClick={() => setShow(false)} style={{ flex:1, background:"#334155", border:"none", color:"#94a3b8", borderRadius:6, padding:"4px 0", cursor:"pointer", fontSize:11 }}>取消</button>
       </div>
     </div>
   );
