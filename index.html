@@ -279,7 +279,16 @@ function useSyncedState(fbPath, init, cleanFn) {
         setLoaded(true);
       } else {
         try {
-          const parsed = Array.isArray(init) ? Object.values(raw) : raw;
+          let parsed = Array.isArray(init) ? Object.values(raw) : raw;
+          // Normalise chemical objects: ensure array fields are always arrays
+          if (fbPath === 'chemicals' && Array.isArray(parsed)) {
+            parsed = parsed.map(c => c ? ({
+              ...c,
+              hazard: Array.isArray(c.hazard) ? c.hazard : [],
+              locations: Array.isArray(c.locations) ? c.locations : [],
+              emergencyEquip: Array.isArray(c.emergencyEquip) ? c.emergencyEquip : [],
+            }) : c).filter(Boolean);
+          }
           setState(parsed);
         } catch(e) { console.warn('FB parse error', e); }
         setLoaded(true);
@@ -1021,7 +1030,7 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
                       存量：<span style={{ color: getStockColor(chem.stock, chem.maxStock) }}>{chem.stock} {chem.unit}</span> / {chem.maxStock} {chem.unit}
                     </div>
                     <div style={{ display:"flex", gap:4, marginTop:6, flexWrap:"wrap" }}>
-                      {chem.hazard.map(h => <span key={h} style={{ fontSize:11 }}>{GHS_SYMBOLS[h]}</span>)}
+                      {(chem.hazard||[]).map(h => <span key={h} style={{ fontSize:11 }}>{GHS_SYMBOLS[h]}</span>)}
                     </div>
                     <div style={{ display:"flex", gap:6, marginTop:10 }}>
                       <button onClick={() => { setSelectedChem(chem); setShowChemDetail(true); }}
@@ -1233,7 +1242,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
       "慈濟大學福田樓": ["1F","2F","3F","4F","5F","6F","7F","8F","9F"],
     };
     const chems = chemicals.filter(c => (c.locations||[]).some(l => l.building === b.name));
-    const usedFloors = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.floor)))];
+    const usedFloors = [...new Set(chems.flatMap(c => (c.locations||[]).filter(l=>l.building===b.name).map(l=>l.floor)))];
     const firstFloor = usedFloors[0] || FLOORS[b.name]?.[0] || "1F";
     setMapBuilding(b.name);
     setMapFloor(firstFloor);
@@ -1329,7 +1338,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {BUILDING_ZONES.map(b => {
             const chems = chemicals.filter(c => (c.locations||[]).some(l => l.building === b.name));
-            const rooms = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.room)))];
+            const rooms = [...new Set(chems.flatMap(c => (c.locations||[]).filter(l=>l.building===b.name).map(l=>l.room)))];
             return (
               <div key={b.name} onClick={() => handleBuildingClick(b)}
                 style={{
@@ -1452,7 +1461,7 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
                   if (!floor) return;
                   const room = prompt("部門/房間：") || "";
                   setChemicals(prev => prev.map(x => x.id === c.id
-                    ? {...x, locations:[...x.locations, {building, floor, room}]}
+                    ? {...x, locations:[...(x.locations||[]), {building, floor, room}]}
                     : x));
                   showToast(`已新增地點：${building} ${floor}`);
                 }} style={{ flex:1, ...btnStyle("#0369a1"), fontSize:11, padding:"4px 0" }}>
@@ -1579,7 +1588,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                       <div key={h} style={{ textAlign:"center", padding:"8px 12px", background:"#1e293b", borderRadius:6, position:"relative" }}>
                         <div style={{ fontSize:24 }}>{GHS_SYMBOLS[h]}</div>
                         <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
-                          <button onClick={() => updateSelected(c => ({...c, hazard:c.hazard.filter(x=>x!==h)}))}
+                          <button onClick={() => updateSelected(c => ({...c, hazard:(c.hazard||[]).filter(x=>x!==h)}))}
                             style={{ position:"absolute", top:-4, right:-4, background:"#ef4444", border:"none",
                               color:"#fff", borderRadius:"50%", width:16, height:16, fontSize:9,
                               cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
@@ -1595,7 +1604,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                           <option key={h} value={h}>{GHS_SYMBOLS[h]} {h}</option>
                         ))}
                       </select>
-                      <button onClick={() => { if (!newHazard) return; updateSelected(c => ({...c, hazard:[...c.hazard, newHazard]})); setNewHazard(""); }}
+                      <button onClick={() => { if (!newHazard) return; updateSelected(c => ({...c, hazard:[...(c.hazard||[]), newHazard]})); setNewHazard(""); }}
                         style={{ background:"#d97706", border:"none", color:"#fff", borderRadius:6,
                           padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
                     </div>
@@ -1607,17 +1616,17 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                       padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                       <span style={{ color:"#22c55e", marginRight:6 }}>✓</span>
                       <span style={{ flex:1 }}>{e}</span>
-                      <button onClick={() => updateSelected(c => ({...c, emergencyEquip:c.emergencyEquip.filter((_,j)=>j!==i)}))}
+                      <button onClick={() => updateSelected(c => ({...c, emergencyEquip:(c.emergencyEquip||[]).filter((_,j)=>j!==i)}))}
                           style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
                             fontSize:12, padding:"0 4px" }}>✕</button>
                     </div>
                   ))}
                   <div style={{ display:"flex", gap:6, marginTop:8 }}>
                       <input value={newEquip} onChange={e => setNewEquip(e.target.value)}
-                        placeholder="新增防護裝備..." onKeyDown={e => { if(e.key==="Enter" && newEquip.trim()) { updateSelected(c=>({...c, emergencyEquip:[...c.emergencyEquip, newEquip.trim()]})); setNewEquip(""); }}}
+                        placeholder="新增防護裝備..." onKeyDown={e => { if(e.key==="Enter" && newEquip.trim()) { updateSelected(c=>({...c, emergencyEquip:[...(c.emergencyEquip||[]), newEquip.trim()]})); setNewEquip(""); }}}
                         style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
                           borderRadius:6, padding:"4px 8px", fontSize:11 }} />
-                      <button onClick={() => { if (!newEquip.trim()) return; updateSelected(c=>({...c, emergencyEquip:[...c.emergencyEquip, newEquip.trim()]})); setNewEquip(""); }}
+                      <button onClick={() => { if (!newEquip.trim()) return; updateSelected(c=>({...c, emergencyEquip:[...(c.emergencyEquip||[]), newEquip.trim()]})); setNewEquip(""); }}
                         style={{ background:"#0369a1", border:"none", color:"#fff", borderRadius:6,
                           padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
                     </div>
@@ -1630,7 +1639,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                     <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
                       padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                       <span style={{ flex:1 }}>🏢 {l.building} {l.floor} · {l.room}</span>
-                      <button onClick={() => updateSelected(c => ({...c, locations:c.locations.filter((_,j)=>j!==i)}))}
+                      <button onClick={() => updateSelected(c => ({...c, locations:(c.locations||[]).filter((_,j)=>j!==i)}))}
                           style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
                             fontSize:12, padding:"0 4px" }}>✕</button>
                     </div>
@@ -1651,7 +1660,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                               color:"#e2e8f0", borderRadius:6, padding:"4px 8px", fontSize:11 }} />
                         </div>
                         <div style={{ display:"flex", gap:6 }}>
-                          <button onClick={() => { updateSelected(c => ({...c, locations:[...c.locations, {...newLocation}]})); setNewLocation({building:"合心樓",floor:"",room:""}); setShowAddLoc(false); }}
+                          <button onClick={() => { updateSelected(c => ({...c, locations:[...(c.locations||[]), {...newLocation}]})); setNewLocation({building:"合心樓",floor:"",room:""}); setShowAddLoc(false); }}
                             style={{ flex:1, background:"#7c3aed", border:"none", color:"#fff", borderRadius:6,
                               padding:"4px 0", cursor:"pointer", fontSize:11 }}>確認新增</button>
                           <button onClick={() => setShowAddLoc(false)}
@@ -2309,7 +2318,7 @@ function ChemDetailModal({ chem, onClose, isAdminMode, chemicals, setChemicals, 
       <div style={{ marginBottom:12 }}>
         <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>GHS 危害標示</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {chem.hazard.map(h => (
+          {(chem.hazard||[]).map(h => (
             <div key={h} style={{ textAlign:"center", padding:"6px 10px", background:"#0f172a", borderRadius:6 }}>
               <div style={{ fontSize:20 }}>{GHS_SYMBOLS[h]}</div>
               <div style={{ fontSize:9, color:"#f59e0b", marginTop:2 }}>{h}</div>
@@ -2321,11 +2330,11 @@ function ChemDetailModal({ chem, onClose, isAdminMode, chemicals, setChemicals, 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px" }}>
           <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>🛡️ 防護裝備</div>
-          {chem.emergencyEquip.map(e => <div key={e} style={{ fontSize:11, color:"#e2e8f0", padding:"2px 0" }}>✓ {e}</div>)}
+          {(chem.emergencyEquip||[]).map(e => <div key={e} style={{ fontSize:11, color:"#e2e8f0", padding:"2px 0" }}>✓ {e}</div>)}
         </div>
         <div style={{ background:"#0f172a", borderRadius:6, padding:"10px 12px" }}>
           <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>📍 存放位置</div>
-          {chem.locations.map((l, i) => (
+          {(chem.locations||[]).map((l, i) => (
             <div key={i} style={{ fontSize:11, color:"#e2e8f0", padding:"2px 0" }}>🏢 {l.building} {l.floor} · {l.room}</div>
           ))}
         </div>
