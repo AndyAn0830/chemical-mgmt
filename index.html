@@ -12,7 +12,7 @@
   <script>
     (function(){var _w=console.warn;console.warn=function(m){if(typeof m==='string'&&m.indexOf('Babel')!==-1)return;_w.apply(console,arguments);};}())
     const firebaseConfig={apiKey:"AIzaSyDjOHhq22OxQrKZEXtE5eQSsZ1B2Zd1Qug",authDomain:"hualien-chem.firebaseapp.com",databaseURL:"https://hualien-chem-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"hualien-chem",storageBucket:"hualien-chem.firebasestorage.app",messagingSenderId:"230824276429",appId:"1:230824276429:web:dfb352b82615446d6b9484"};
-    try{firebase.initializeApp(firebaseConfig);window.firebaseDb=firebase.database();console.log('Firebase connected ✓');window.firebaseDb.ref('.info/connected').on('value',snap=>{const el=document.getElementById('fb-indicator');if(!el)return;el.textContent=snap.val()?'🟢 已同步':'🔴 離線';el.style.color=snap.val()?'#22c55e':'#ef4444';});}catch(e){console.warn('Firebase init failed:',e);window.firebaseDb=null;}
+    try{firebase.initializeApp(firebaseConfig);window.firebaseDb=firebase.database();console.log('Firebase connected');window.firebaseDb.ref('.info/connected').on('value',snap=>{const el=document.getElementById('fb-indicator');if(!el)return;el.textContent=snap.val()?'🟢 已同步':'🔴 離線';el.style.color=snap.val()?'#22c55e':'#ef4444';});}catch(e){console.warn('Firebase init failed:',e);window.firebaseDb=null;}
   </script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -252,17 +252,45 @@ const getCategoryColor = (cat) =>
 // ─── Firebase Sync Hook ────────────────────────────────────────────────────────
 function useSyncedState(fbPath, init, cleanFn) {
   const [state, setState] = useState(init);
+  const [loaded, setLoaded] = React.useState(false);
+
+  const toFirebase = (data) => {
+    let toSave = cleanFn ? cleanFn(data) : data;
+    if (Array.isArray(toSave)) {
+      const obj = {};
+      toSave.forEach((item, i) => {
+        const key = String(item.id != null ? item.id : i).replace(/[.$#[\]/]/g, '_');
+        obj[key] = item;
+      });
+      return obj;
+    }
+    return toSave;
+  };
 
   React.useEffect(() => {
     const db = window.firebaseDb;
-    if (!db) return;
+    if (!db) { setLoaded(true); return; }
     const ref = db.ref(fbPath);
-    ref.on('value', snap => {
+    ref.once('value', snap => {
       const raw = snap.val();
-      if (raw == null) return;
-      try {
-        setState(Array.isArray(init) ? Object.values(raw) : raw);
-      } catch(e) { console.warn('FB parse error', e); }
+      if (raw == null) {
+        // Firebase empty → write initial data
+        ref.set(toFirebase(init)).catch(e => console.warn('FB init write error:', e));
+        setLoaded(true);
+      } else {
+        try {
+          const parsed = Array.isArray(init) ? Object.values(raw) : raw;
+          setState(parsed);
+        } catch(e) { console.warn('FB parse error', e); }
+        setLoaded(true);
+        // Subscribe to live updates
+        ref.on('value', snap2 => {
+          const r2 = snap2.val();
+          if (r2 == null) return;
+          try { setState(Array.isArray(init) ? Object.values(r2) : r2); }
+          catch(e) { console.warn('FB live parse error', e); }
+        });
+      }
     });
     return () => ref.off();
   }, [fbPath]);
@@ -272,22 +300,13 @@ function useSyncedState(fbPath, init, cleanFn) {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       const db = window.firebaseDb;
       if (db && next != null) {
-        let toSave = cleanFn ? cleanFn(next) : next;
-        if (Array.isArray(toSave)) {
-          const obj = {};
-          toSave.forEach((item, i) => {
-            const key = String(item.id != null ? item.id : i).replace(/[.$#[\]/]/g, '_');
-            obj[key] = item;
-          });
-          toSave = obj;
-        }
-        db.ref(fbPath).set(toSave).catch(e => console.warn('Firebase write error:', e));
+        db.ref(fbPath).set(toFirebase(next)).catch(e => console.warn('Firebase write error:', e));
       }
       return next;
     });
   };
 
-  return [state, set];
+  return [state, set, loaded];
 }
 
 function App() {
@@ -519,7 +538,7 @@ function DashboardPage({ stats, chemicals, setPage, setSelectedChem, setShowChem
   const highStock = chemicals.filter(c => (c.stock / c.maxStock) >= 0.8);
   const byBuilding = BUILDINGS.map(b => ({
     name: b,
-    count: chemicals.filter(c => c.locations.some(l => l.building === b)).length
+    count: chemicals.filter(c => (c.locations||[]).some(l => l.building === b)).length
   }));
 
   return (
@@ -619,7 +638,7 @@ function DashboardPage({ stats, chemicals, setPage, setSelectedChem, setShowChem
                   </div>
                 </td>
                 <td style={{ padding:"8px 8px", color:"#94a3b8", fontSize:11 }}>
-                  {c.locations.map(l => l.room).join(", ")}
+                  {(c.locations||[]).map(l => l.room).join(", ")}
                 </td>
               </tr>
             ))}
@@ -757,7 +776,7 @@ function MapPage({ chemicals, mapBuilding, setMapBuilding, mapFloor, setMapFloor
 
   // Chemicals on this floor (from data)
   const floorChems = chemicals.filter(c =>
-    c.locations.some(l => l.building === mapBuilding && l.floor === mapFloor)
+    (c.locations||[]).some(l => l.building === mapBuilding && l.floor === mapFloor)
   );
 
   return (
@@ -1203,7 +1222,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
   const [hoveredBuilding, setHoveredBuilding] = useState(null);
 
   const getBuildingChemCount = (bName) =>
-    chemicals.filter(c => c.locations.some(l => l.building === bName)).length;
+    chemicals.filter(c => (c.locations||[]).some(l => l.building === bName)).length;
 
   const handleBuildingClick = (b) => {
     const FLOORS = {
@@ -1213,7 +1232,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
       "協力樓": ["B1F","1F","2F","3F","5F","6F","7F","8F","9F","10F","11F"],
       "慈濟大學福田樓": ["1F","2F","3F","4F","5F","6F","7F","8F","9F"],
     };
-    const chems = chemicals.filter(c => c.locations.some(l => l.building === b.name));
+    const chems = chemicals.filter(c => (c.locations||[]).some(l => l.building === b.name));
     const usedFloors = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.floor)))];
     const firstFloor = usedFloors[0] || FLOORS[b.name]?.[0] || "1F";
     setMapBuilding(b.name);
@@ -1309,7 +1328,7 @@ function IsoPage({ chemicals, setSelectedChem, setShowChemDetail, setPage, setMa
         {/* ── 大樓資訊卡 ── */}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {BUILDING_ZONES.map(b => {
-            const chems = chemicals.filter(c => c.locations.some(l => l.building === b.name));
+            const chems = chemicals.filter(c => (c.locations||[]).some(l => l.building === b.name));
             const rooms = [...new Set(chems.flatMap(c => c.locations.filter(l=>l.building===b.name).map(l=>l.room)))];
             return (
               <div key={b.name} onClick={() => handleBuildingClick(b)}
@@ -1398,7 +1417,7 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
             </div>
 
             <div style={{ display:"flex", gap:4, marginTop:10, flexWrap:"wrap" }}>
-              {c.hazard.map(h => <span key={h} style={{ fontSize:10, color:"#fbbf24" }}>{GHS_SYMBOLS[h]}</span>)}
+              {(c.hazard||[]).map(h => <span key={h} style={{ fontSize:10, color:"#fbbf24" }}>{GHS_SYMBOLS[h]}</span>)}
             </div>
 
             <div style={{ marginTop:10 }}>
@@ -1413,7 +1432,7 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
 
             <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
               <span style={{ fontSize:10, color:"#64748b" }}>
-                📍 {c.locations.map(l => `${l.building} ${l.floor}${l.room ? " "+l.room : ""}`).join("、")}
+                📍 {(c.locations||[]).map(l => `${l.building} ${l.floor}${l.room ? " "+l.room : ""}`).join("、")}
               </span>
               <span style={{ fontSize:10, color: c.declared ? "#22c55e" : "#94a3b8", marginLeft:"auto" }}>
                 {c.declared ? "✓ 已申報" : "○ 未申報"}
@@ -1506,8 +1525,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                   <h3 style={{ margin:0, fontSize:18, color:"#f1f5f9" }}>{selected.name}</h3>
                   <div style={{ fontSize:13, color:"#94a3b8" }}>{selected.enName}</div>
                 </div>
-                {isAdminMode && (
-                  <div style={{ marginLeft:"auto", display:"flex", gap:6, alignItems:"center" }}>
+                <div style={{ marginLeft:"auto", display:"flex", gap:6, alignItems:"center" }}>
                     <input id="sds-upload-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx"
                       style={{display:"none"}}
                       onChange={e => {
@@ -1535,7 +1553,6 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                       }}>🗑️ 移除</button>
                     )}
                   </div>
-                )}
               </div>
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:20 }}>
@@ -1558,21 +1575,18 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <SDSSection title="⚠️ GHS 危害標示" color="#f59e0b">
                   <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
-                    {selected.hazard.map(h => (
+                    {(selected.hazard||[]).map(h => (
                       <div key={h} style={{ textAlign:"center", padding:"8px 12px", background:"#1e293b", borderRadius:6, position:"relative" }}>
                         <div style={{ fontSize:24 }}>{GHS_SYMBOLS[h]}</div>
                         <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
-                        {isAdminMode && (
                           <button onClick={() => updateSelected(c => ({...c, hazard:c.hazard.filter(x=>x!==h)}))}
                             style={{ position:"absolute", top:-4, right:-4, background:"#ef4444", border:"none",
                               color:"#fff", borderRadius:"50%", width:16, height:16, fontSize:9,
                               cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
-                        )}
                       </div>
                     ))}
                   </div>
-                  {isAdminMode && (
-                    <div style={{ display:"flex", gap:6 }}>
+                  <div style={{ display:"flex", gap:6 }}>
                       <select value={newHazard} onChange={e => setNewHazard(e.target.value)}
                         style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
                           borderRadius:6, padding:"4px 8px", fontSize:11 }}>
@@ -1585,24 +1599,20 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                         style={{ background:"#d97706", border:"none", color:"#fff", borderRadius:6,
                           padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
                     </div>
-                  )}
                 </SDSSection>
 
                 <SDSSection title="🛡️ 防護裝備" color="#38bdf8">
-                  {selected.emergencyEquip.map((e, i) => (
+                  {(selected.emergencyEquip||[]).map((e, i) => (
                     <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
                       padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                       <span style={{ color:"#22c55e", marginRight:6 }}>✓</span>
                       <span style={{ flex:1 }}>{e}</span>
-                      {isAdminMode && (
-                        <button onClick={() => updateSelected(c => ({...c, emergencyEquip:c.emergencyEquip.filter((_,j)=>j!==i)}))}
+                      <button onClick={() => updateSelected(c => ({...c, emergencyEquip:c.emergencyEquip.filter((_,j)=>j!==i)}))}
                           style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
                             fontSize:12, padding:"0 4px" }}>✕</button>
-                      )}
                     </div>
                   ))}
-                  {isAdminMode && (
-                    <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                  <div style={{ display:"flex", gap:6, marginTop:8 }}>
                       <input value={newEquip} onChange={e => setNewEquip(e.target.value)}
                         placeholder="新增防護裝備..." onKeyDown={e => { if(e.key==="Enter" && newEquip.trim()) { updateSelected(c=>({...c, emergencyEquip:[...c.emergencyEquip, newEquip.trim()]})); setNewEquip(""); }}}
                         style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
@@ -1611,25 +1621,21 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                         style={{ background:"#0369a1", border:"none", color:"#fff", borderRadius:6,
                           padding:"4px 12px", cursor:"pointer", fontSize:11 }}>新增</button>
                     </div>
-                  )}
                 </SDSSection>
 
 
 
                 <SDSSection title="📍 存放位置" color="#a78bfa">
-                  {selected.locations.map((l, i) => (
+                  {(selected.locations||[]).map((l, i) => (
                     <div key={i} style={{ display:"flex", alignItems:"center", fontSize:12, color:"#e2e8f0",
                       padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                       <span style={{ flex:1 }}>🏢 {l.building} {l.floor} · {l.room}</span>
-                      {isAdminMode && (
-                        <button onClick={() => updateSelected(c => ({...c, locations:c.locations.filter((_,j)=>j!==i)}))}
+                      <button onClick={() => updateSelected(c => ({...c, locations:c.locations.filter((_,j)=>j!==i)}))}
                           style={{ background:"none", border:"none", color:"#475569", cursor:"pointer",
                             fontSize:12, padding:"0 4px" }}>✕</button>
-                      )}
                     </div>
                   ))}
-                  {isAdminMode && (
-                    showAddLoc ? (
+                  {showAddLoc ? (
                       <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
                         <div style={{ display:"flex", gap:4 }}>
                           <select value={newLocation.building} onChange={e => setNewLocation(l => ({...l, building:e.target.value}))}
@@ -2192,7 +2198,7 @@ function EmergencyPage({ chemicals }) {
               <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
                 <div style={{ fontSize:12, fontWeight:600, color:"#f59e0b", marginBottom:10 }}>⚠️ 危害特性</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                  {selChem.hazard.map(h => (
+                  {(selChem.hazard||[]).map(h => (
                     <div key={h} style={{ textAlign:"center", padding:"8px", background:"#0f172a", borderRadius:6 }}>
                       <div style={{ fontSize:28 }}>{GHS_SYMBOLS[h]}</div>
                       <div style={{ fontSize:10, color:"#f59e0b", marginTop:4 }}>{h}</div>
@@ -2203,7 +2209,7 @@ function EmergencyPage({ chemicals }) {
 
               <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
                 <div style={{ fontSize:12, fontWeight:600, color:"#38bdf8", marginBottom:10 }}>🛡️ 必要防護裝備</div>
-                {selChem.emergencyEquip.map((e, i) => (
+                {(selChem.emergencyEquip||[]).map((e, i) => (
                   <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid #1e3a5f" }}>
                     <span style={{ color:"#22c55e", fontSize:14 }}>●</span>
                     <span style={{ fontSize:12, color:"#e2e8f0" }}>{e}</span>
@@ -2217,7 +2223,7 @@ function EmergencyPage({ chemicals }) {
 
               <div style={{ background:"#1e293b", borderRadius:10, padding:14 }}>
                 <div style={{ fontSize:12, fontWeight:600, color:"#a78bfa", marginBottom:10 }}>📍 存放地點</div>
-                {selChem.locations.map((l, i) => (
+                {(selChem.locations||[]).map((l, i) => (
                   <div key={i} style={{ padding:"6px 0", borderBottom:"1px solid #1e3a5f", fontSize:12, color:"#e2e8f0" }}>
                     🏢 {l.building} {l.floor} · {l.room}
                   </div>
