@@ -1598,7 +1598,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                         style={{ flex:1, background:"#0f172a", border:"1px solid #334155", color:"#e2e8f0",
                           borderRadius:6, padding:"4px 8px", fontSize:11 }}>
                         <option value="">＋ 新增危害標示</option>
-                        {Object.keys(GHS_SYMBOLS).filter(h => !selected.hazard.includes(h)).map(h => (
+                        {Object.keys(GHS_SYMBOLS).filter(h => !(selected.hazard||[]).includes(h)).map(h => (
                           <option key={h} value={h}>{GHS_SYMBOLS[h]} {h}</option>
                         ))}
                       </select>
@@ -1654,7 +1654,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                   <span style={{ fontSize:12, color:"#475569" }}>尚未上傳 SDS 檔案</span>
                 )}
                 <span style={{ fontSize:11, color:"#475569", marginLeft:"auto" }}>
-                  {selected.sds.supplier} · 更新於 {selected.sds.updated}
+                  {selected.sds?.supplier} · 更新於 {selected.sds?.updated}
                 </span>
               </div>
             </div>
