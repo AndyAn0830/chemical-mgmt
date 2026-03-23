@@ -4,48 +4,15 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>花蓮慈濟醫院 毒性及關注化學物質管理系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <!-- React -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <!-- Firebase -->
   <script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-database-compat.min.js"></script>
   <script>
-    (function() {
-      var _w = console.warn;
-      console.warn = function(m) { if (typeof m === 'string' && m.indexOf('Babel') !== -1) return; _w.apply(console, arguments); };
-    })();
-    // Initialize Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyDjOHhq22OxQrKZEXtE5eQSsZ1B2Zd1Qug",
-      authDomain: "hualien-chem.firebaseapp.com",
-      databaseURL: "https://hualien-chem-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "hualien-chem",
-      storageBucket: "hualien-chem.firebasestorage.app",
-      messagingSenderId: "230824276429",
-      appId: "1:230824276429:web:dfb352b82615446d6b9484"
-    };
-    try {
-      firebase.initializeApp(firebaseConfig);
-      window.firebaseDb = firebase.database();
-      console.log('Firebase connected ✓');
-      // Show connection status
-      window.firebaseDb.ref('.info/connected').on('value', snap => {
-        const el = document.getElementById('fb-indicator');
-        if (!el) return;
-        if (snap.val() === true) {
-          el.textContent = '🟢 已同步';
-          el.style.color = '#22c55e';
-        } else {
-          el.textContent = '🔴 離線';
-          el.style.color = '#ef4444';
-        }
-      });
-    } catch(e) {
-      console.warn('Firebase init failed:', e);
-      window.firebaseDb = null;
-    }
+    (function(){var _w=console.warn;console.warn=function(m){if(typeof m==='string'&&m.indexOf('Babel')!==-1)return;_w.apply(console,arguments);};}())
+    const firebaseConfig={apiKey:"AIzaSyDjOHhq22OxQrKZEXtE5eQSsZ1B2Zd1Qug",authDomain:"hualien-chem.firebaseapp.com",databaseURL:"https://hualien-chem-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"hualien-chem",storageBucket:"hualien-chem.firebasestorage.app",messagingSenderId:"230824276429",appId:"1:230824276429:web:dfb352b82615446d6b9484"};
+    try{firebase.initializeApp(firebaseConfig);window.firebaseDb=firebase.database();console.log('Firebase connected ✓');window.firebaseDb.ref('.info/connected').on('value',snap=>{const el=document.getElementById('fb-indicator');if(!el)return;el.textContent=snap.val()?'🟢 已同步':'🔴 離線';el.style.color=snap.val()?'#22c55e':'#ef4444';});}catch(e){console.warn('Firebase init failed:',e);window.firebaseDb=null;}
   </script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -75,7 +42,7 @@ const GHS_SYMBOLS = {
 
 const INITIAL_CHEMICALS = [
   {
-    id: "050-01", name: "丙烯醯胺", enName: "Acrylamide",
+    id: "050-01", concentration: "≥97%", name: "丙烯醯胺", enName: "Acrylamide",
     locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
     hazard: ["毒性", "健康危害"], category: "毒性化學物質",
     stock: 2.5, unit: "kg", maxStock: 10,
@@ -85,7 +52,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 2.5
   },
   {
-    id: "054-01", name: "三氯甲烷", enName: "Chloroform",
+    id: "054-01", concentration: "≥99%", name: "三氯甲烷", enName: "Chloroform",
     locations: [
       { building: "合心樓", floor: "3F", room: "檢驗科" },
       { building: "合心樓", floor: "5F", room: "研究部" }
@@ -98,7 +65,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 5
   },
   {
-    id: "061-01", name: "環氧乙烷", enName: "Ethylene oxide",
+    id: "061-01", concentration: "100%", name: "環氧乙烷", enName: "Ethylene oxide",
     locations: [{ building: "感恩樓", floor: "B1F", room: "供應中心" }],
     hazard: ["易燃", "毒性", "健康危害", "爆炸物"], category: "毒性化學物質",
     stock: 12, unit: "kg", maxStock: 50,
@@ -108,7 +75,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 12
   },
   {
-    id: "066-01", name: "甲醛", enName: "Formaldehyde",
+    id: "066-01", concentration: "37%", name: "甲醛", enName: "Formaldehyde",
     locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
     hazard: ["毒性", "易燃", "健康危害"], category: "毒性化學物質",
     stock: 8, unit: "L", maxStock: 30,
@@ -118,7 +85,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 8
   },
   {
-    id: "083-01", name: "氯乙酸", enName: "Chloroacetic acid",
+    id: "083-01", concentration: "≥99%", name: "氯乙酸", enName: "Chloroacetic acid",
     locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
     hazard: ["腐蝕", "毒性"], category: "毒性化學物質",
     stock: 1.2, unit: "kg", maxStock: 5,
@@ -128,7 +95,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 1.2
   },
   {
-    id: "098-01", name: "二甲基甲醯胺", enName: "N,N-Dimethyl formamide",
+    id: "098-01", concentration: "≥99%", name: "二甲基甲醯胺", enName: "N,N-Dimethyl formamide",
     locations: [{ building: "合心樓", floor: "3F", room: "檢驗科" }],
     hazard: ["健康危害", "易燃"], category: "毒性化學物質",
     stock: 3, unit: "L", maxStock: 15,
@@ -138,7 +105,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 3
   },
   {
-    id: "098-02", name: "甲醯胺", enName: "Formamide",
+    id: "098-02", concentration: "≥99%", name: "甲醯胺", enName: "Formamide",
     locations: [
       { building: "合心樓", floor: "5F", room: "研究部" },
       { building: "大愛樓", floor: "5F", room: "生殖醫學中心" },
@@ -152,7 +119,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 6
   },
   {
-    id: "105-01", name: "乙腈", enName: "Acetonitrile",
+    id: "105-01", concentration: "≥99%", name: "乙腈", enName: "Acetonitrile",
     locations: [
       { building: "合心樓", floor: "5F", room: "研究部" },
       { building: "合心樓", floor: "3F", room: "檢驗科" },
@@ -166,7 +133,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 15
   },
   {
-    id: "156-01", name: "氟", enName: "Fluorine",
+    id: "156-01", concentration: "100%", name: "氟", enName: "Fluorine",
     locations: [{ building: "大愛樓", floor: "6F", room: "核醫製藥科" }],
     hazard: ["毒性", "腐蝕", "氧化"], category: "毒性化學物質",
     stock: 0.5, unit: "kg", maxStock: 2,
@@ -176,7 +143,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 0.5
   },
   {
-    id: "165-02", name: "壬基酚聚乙氧基醇", enName: "Nonylphenol polyethylene glycol ether",
+    id: "165-02", concentration: "≥99%", name: "壬基酚聚乙氧基醇", enName: "Nonylphenol polyethylene glycol ether",
     locations: [{ building: "合心樓", floor: "5F", room: "研究部" }],
     hazard: ["環境", "健康危害"], category: "毒性化學物質",
     stock: 4, unit: "L", maxStock: 20,
@@ -186,7 +153,7 @@ const INITIAL_CHEMICALS = [
     declared: true, declarationDate: "2025-01-10", reportAmount: 4
   },
   {
-    id: "L001-01", name: "一氧化二氮(笑氣)", enName: "Nitrous Oxide",
+    id: "L001-01", concentration: "100%", name: "一氧化二氮(笑氣)", enName: "Nitrous Oxide",
     locations: [{ building: "感恩樓", floor: "3F", room: "心導管室" }],
     hazard: ["壓縮氣體", "氧化"], category: "關注化學物質",
     stock: 25, unit: "kg", maxStock: 100,
@@ -1422,6 +1389,7 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
                 <div style={{ fontSize:11, color:"#64748b" }}>{c.id}</div>
                 <div style={{ fontSize:15, fontWeight:700, color:"#f1f5f9", marginTop:2 }}>{c.name}</div>
                 <div style={{ fontSize:11, color:"#94a3b8" }}>{c.enName}</div>
+                {c.concentration && <div style={{ fontSize:10, color:"#38bdf8", marginTop:2 }}>濃度：{c.concentration}</div>}
               </div>
               <span style={{ marginLeft:"auto", fontSize:11, background: c.category === "毒性化學物質" ? "#7f1d1d" : "#78350f",
                 color: getCategoryColor(c.category), padding:"2px 8px", borderRadius:20 }}>
@@ -1445,7 +1413,7 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
 
             <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
               <span style={{ fontSize:10, color:"#64748b" }}>
-                📍 {c.locations.map(l => l.building).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+                📍 {c.locations.map(l => `${l.building} ${l.floor}${l.room ? " "+l.room : ""}`).join("、")}
               </span>
               <span style={{ fontSize:10, color: c.declared ? "#22c55e" : "#94a3b8", marginLeft:"auto" }}>
                 {c.declared ? "✓ 已申報" : "○ 未申報"}
@@ -1456,6 +1424,20 @@ function ChemicalsPage({ chemicals, allChemicals, setChemicals, isAdminMode, sea
                 <button onClick={e => { e.stopPropagation(); setEditingChem(c); }}
                   style={{ flex:1, ...btnStyle("#334155"), fontSize:11, padding:"4px 0" }}>
                   ✏️ 編輯
+                </button>
+                <button onClick={e => {
+                  e.stopPropagation();
+                  const building = prompt("大樓（大愛樓/感恩樓/合心樓/協力樓/慈濟大學福田樓）：");
+                  if (!building) return;
+                  const floor = prompt("樓層（例：5F）：");
+                  if (!floor) return;
+                  const room = prompt("部門/房間：") || "";
+                  setChemicals(prev => prev.map(x => x.id === c.id
+                    ? {...x, locations:[...x.locations, {building, floor, room}]}
+                    : x));
+                  showToast(`已新增地點：${building} ${floor}`);
+                }} style={{ flex:1, ...btnStyle("#0369a1"), fontSize:11, padding:"4px 0" }}>
+                  📍 新增地點
                 </button>
                 <button onClick={e => {
                   e.stopPropagation();
@@ -1560,6 +1542,7 @@ function SDSPage({ chemicals, isAdminMode, setChemicals, showToast }) {
                 {[
                   { label:"CAS 編號", value:selected.cas },
                   { label:"UN 編號", value:selected.un },
+                  { label:"濃度（W/W%）", value:selected.concentration || "未填" },
                   { label:"供應商", value:selected.sds.supplier },
                   { label:"最後更新", value:selected.sds.updated },
                   { label:"化學品類別", value:selected.category },
@@ -2348,7 +2331,7 @@ function ChemDetailModal({ chem, onClose, isAdminMode, chemicals, setChemicals, 
 // ─── Add Chemical Modal ────────────────────────────────────────────────────────
 function AddChemModal({ onClose, onSave }) {
   const [form, setForm] = useState({
-    id:"", name:"", enName:"", category:"毒性化學物質",
+    id:"", name:"", enName:"", category:"毒性化學物質", concentration:"",
     cas:"", un:"", stock:0, maxStock:100, unit:"L",
     hazard:[], locations:[{ building:"合心樓", floor:"5F", room:"" }],
     emergencyEquip:[], declared:false,
@@ -2370,6 +2353,7 @@ function AddChemModal({ onClose, onSave }) {
         <div><label style={labelStyle}>品項代碼 *</label><input value={form.id} onChange={e=>update("id",e.target.value)} style={inputStyle} placeholder="e.g. 050-01" /></div>
         <div><label style={labelStyle}>中文名稱 *</label><input value={form.name} onChange={e=>update("name",e.target.value)} style={inputStyle} /></div>
         <div><label style={labelStyle}>英文名稱</label><input value={form.enName} onChange={e=>update("enName",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>濃度（W/W%）</label><input value={form.concentration||""} onChange={e=>update("concentration",e.target.value)} style={inputStyle} placeholder="例：2% 或 ≥99%" /></div>
         <div><label style={labelStyle}>類別</label>
           <select value={form.category} onChange={e=>update("category",e.target.value)} style={inputStyle}>
             <option>毒性化學物質</option><option>關注化學物質</option>
@@ -2446,6 +2430,7 @@ function EditChemModal({ chem, onClose, onSave }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
         <div><label style={labelStyle}>中文名稱</label><input value={form.name} onChange={e=>update("name",e.target.value)} style={inputStyle} /></div>
         <div><label style={labelStyle}>英文名稱</label><input value={form.enName} onChange={e=>update("enName",e.target.value)} style={inputStyle} /></div>
+        <div><label style={labelStyle}>濃度（W/W%）</label><input value={form.concentration||""} onChange={e=>update("concentration",e.target.value)} style={inputStyle} placeholder="例：2% 或 ≥99%" /></div>
         <div><label style={labelStyle}>類別</label>
           <select value={form.category} onChange={e=>update("category",e.target.value)} style={inputStyle}>
             <option>毒性化學物質</option><option>關注化學物質</option>
